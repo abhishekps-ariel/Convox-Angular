@@ -13,16 +13,19 @@ import { ReactiveFormsModule } from '@angular/forms';
 })
 export class RegisterComponent {
   registerForm: FormGroup;
-  status: string = '';
-  isSubmitting: boolean = false;
+  isSubmitting = false;
+  status = '';
 
   constructor(private fb: FormBuilder, private authService: AuthService, private router: Router) {
-    this.registerForm = this.fb.group({
-      username: ['', [Validators.required, Validators.minLength(3)]],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]],
-    }, { validators: this.passwordMatch });
+    this.registerForm = this.fb.group(
+      {
+        username: ['', [Validators.required, Validators.minLength(3)]],
+        email: ['', [Validators.required, Validators.email]],
+        password: ['', [Validators.required, Validators.minLength(6)]],
+        confirmPassword: ['', [Validators.required]],
+      },
+      { validators: this.passwordMatch }
+    );
   }
 
   passwordMatch(group: FormGroup) {
@@ -31,20 +34,19 @@ export class RegisterComponent {
     return password === confirm ? null : { mismatch: true };
   }
 
-  async onSubmit() {
+  onSubmit() {
     if (this.registerForm.invalid) return;
-
     this.isSubmitting = true;
     this.status = '';
+
     const { username, email, password } = this.registerForm.value;
 
-    try {
-      await this.authService.register(username, email, password);
-      this.router.navigate(['/chat']); // navigate to chat after successful registration
-    } catch (err: any) {
-      this.status = err?.message || 'Registration failed';
-    } finally {
-      this.isSubmitting = false;
-    }
+    this.authService.register(username, email, password).subscribe({
+      next: () => this.router.navigate(['/chat']),
+      error: (err) => {
+        this.status = err?.error?.message || 'Registration failed';
+      },
+      complete: () => (this.isSubmitting = false),
+    });
   }
 }

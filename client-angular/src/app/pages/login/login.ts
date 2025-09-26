@@ -4,7 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/authService';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
-// ...existing code...
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -24,20 +25,29 @@ export class LoginComponent {
     });
   }
 
-  async onSubmit() {
+  onSubmit() {
     if (this.loginForm.invalid) return;
 
     this.isSubmitting = true;
     this.status = '';
     const { email, password } = this.loginForm.value;
 
-    try {
-      await this.authService.login(email, password);
-      this.router.navigate(['/chat']); 
-    } catch (err: any) {
-      this.status = err?.message || 'Login failed';
-    } finally {
-      this.isSubmitting = false;
-    }
+    this.authService.login(email, password)
+      .pipe(
+        catchError((err) => {
+          
+          this.status = err.error?.message || 'Invalid email or password';
+          this.isSubmitting = false;
+          return throwError(() => err);
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          
+          console.log('Login success:', res);
+          this.router.navigate(['/chat']);
+          this.isSubmitting = false;
+        },
+      });
   }
 }

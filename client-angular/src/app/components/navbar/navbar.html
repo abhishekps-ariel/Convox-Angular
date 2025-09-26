@@ -1,0 +1,31 @@
+<nav class="w-full bg-white border-b border-gray-200 px-6 py-4" *ngIf="authService.user$ | async as user">
+  <div class="flex items-center justify-between">
+
+    <!-- User Profile Section -->
+    <button class="flex items-center bg-gray-50 rounded-lg px-4 py-2 border border-gray-200 hover:bg-gray-100 transition-colors">
+      <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+        <img *ngIf="user.profilePicture" [src]="user.profilePicture" alt="Profile" class="w-full h-full object-cover">
+        <span *ngIf="!user.profilePicture">{{ user.username.charAt(0).toUpperCase() }}</span>
+      </div>
+      <div class="ml-3 text-left">
+        <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+        <p class="text-xs text-gray-500">You</p>
+      </div>
+    </button>
+
+    <!-- Logo -->
+    <div class="flex-1 flex justify-center">
+      <h1 class="text-2xl font-bold tracking-tight text-gray-900">
+        Convo<span class="text-indigo-600 text-3xl">X</span>
+      </h1>
+    </div>
+
+    <!-- Logout Button -->
+    <div class="flex items-center">
+      <button (click)="logout()" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+        Logout
+      </button>
+    </div>
+
+  </div>
+</nav>
