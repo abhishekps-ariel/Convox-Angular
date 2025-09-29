@@ -87,3 +87,11 @@ export interface GroupConversation {
   unreadCount: number;
   memberCount: number;
 }
+
+// Extended Group type with unread count and last message
+export interface GroupWithUnread extends Group {
+  unreadCount: number;
+  lastMessage: Message | null;
+  hasLeft?: boolean;
+  hasBeenRemoved?: boolean;
+}

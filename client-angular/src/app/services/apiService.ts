@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { environment } from '../environments/environment';
+import type { User, Conversation, Group } from '../types/chatTypes';
 
 @Injectable({
   providedIn: 'root',
@@ -52,5 +54,26 @@ export class ApiService {
   private handleError(error: any) {
     console.error('API error:', error);
     return throwError(() => error);
+  }
+
+  // Chat-specific API methods
+  fetchUsers(token: string): Observable<User[]> {
+    return this.get<User[]>(`${environment.API_URL}/api/users`, token);
+  }
+
+  fetchConversations(token: string): Observable<Conversation[]> {
+    return this.get<Conversation[]>(`${environment.API_URL}/api/conversations`, token);
+  }
+
+  fetchUserGroups(token: string): Observable<Group[]> {
+    return this.get<Group[]>(`${environment.API_URL}/api/groups`, token);
+  }
+
+  markMessagesAsRead(token: string, senderId: string): Observable<any> {
+    return this.post(`${environment.API_URL}/api/messages/markAsRead`, { senderId }, token);
+  }
+
+  checkBlockStatus(token: string, userId: string): Observable<{ isBlockedByMe: boolean; isBlockedByThem: boolean }> {
+    return this.get(`${environment.API_URL}/api/users/${userId}/block-status`, token);
   }
 }

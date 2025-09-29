@@ -12,7 +12,7 @@ export const AUTH_ENDPOINTS = {
 };
 
 export interface User {
-  _id: string;
+  id: string;
   username: string;
   email: string;
   bio?: string;
@@ -82,5 +82,9 @@ export class AuthService {
 
   get currentUser(): User | null {
     return this.userSubject.value;
+  }
+
+  get currentUserId(): string | null {
+    return this.userSubject.value?.id || null;
   }
 }

@@ -245,15 +245,15 @@ export class SocketService implements OnDestroy {
     // Add message if it involves current user
     const currentUser = this.auth.currentUser;
     if (!currentUser) return;
-    const isSender = message.sender._id === currentUser._id;
-    const isReceiver = !!message.receiver && message.receiver._id === currentUser._id;
+    const isSender = message.sender._id === currentUser.id;
+    const isReceiver = !!message.receiver && message.receiver._id === currentUser.id;
     if (!isSender && !isReceiver) return;
 
     // Append message only if chat is currently open — components may filter or we just append
     this.upsertMessage(message);
 
     // Update conversation list and unread increment logic
-    const shouldIncrementUnread = !this.isChatOpenWith(message.sender._id) && message.receiver && message.receiver._id === currentUser._id;
+    const shouldIncrementUnread = !this.isChatOpenWith(message.sender._id) && message.receiver && message.receiver._id === currentUser.id;
     this.conversationUpdateSubject.next({ message, incrementUnread: shouldIncrementUnread });
   }
 
@@ -261,7 +261,7 @@ export class SocketService implements OnDestroy {
     // group messages: append if viewing group or still append for history
     this.upsertMessage(message);
 
-    const isSender = message.sender._id === this.auth.currentUser?._id;
+    const isSender = message.sender._id === this.auth.currentUserId;
     const viewingThisGroup = this.isViewingGroup(message.group as any);
     const shouldIncrementUnread = !viewingThisGroup && !isSender;
     this.groupUpdateSubject.next({ message, incrementUnread: shouldIncrementUnread });

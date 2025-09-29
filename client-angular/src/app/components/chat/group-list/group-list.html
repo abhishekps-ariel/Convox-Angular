@@ -1,0 +1,68 @@
+<div class="space-y-1">
+  <div
+    *ngFor="let group of groups"
+    (click)="onGroupSelect(group)"
+    class="flex items-center p-3 cursor-pointer hover:bg-gray-50 transition duration-200 border-b border-gray-100 last:border-b-0"
+    [class]="selectedGroup?._id === group._id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''"
+    [class.opacity-50]="group.hasLeft || group.hasBeenRemoved"
+  >
+    <div class="relative flex-shrink-0">
+      <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold overflow-hidden">
+        <img
+          *ngIf="group.icon && !group.icon.startsWith('data:')"
+          [src]="group.icon"
+          [alt]="group.name"
+          class="w-full h-full object-cover"
+        />
+        <span *ngIf="!group.icon || group.icon.startsWith('data:')">
+          {{ getGroupIcon(group) }}
+        </span>
+      </div>
+      
+      <!-- Unread count badge -->
+      <span 
+        *ngIf="group.unreadCount > 0"
+        class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium"
+      >
+        {{ group.unreadCount > 99 ? '99+' : group.unreadCount }}
+      </span>
+    </div>
+    
+    <div class="ml-3 flex-1 overflow-hidden min-w-0">
+      <div class="flex items-center justify-between">
+        <h3 class="font-medium text-gray-900 truncate">
+          {{ getGroupDisplayName(group) }}
+        </h3>
+        <span 
+          *ngIf="group.lastMessage"
+          class="text-xs text-gray-500 flex-shrink-0 ml-2"
+        >
+          {{ getTimeAgo(group.lastMessage.createdAt) }}
+        </span>
+      </div>
+      
+      <div class="flex items-center justify-between mt-1">
+        <p 
+          class="text-sm text-gray-500 truncate"
+          [class]="group.unreadCount > 0 ? 'font-semibold text-gray-900' : ''"
+        >
+          <span *ngIf="group.lastMessage?.sender" class="font-medium">
+            {{ getSenderUsername(group.lastMessage) }}:
+          </span>
+          {{ formatLastMessage(group.lastMessage) }}
+        </p>
+      </div>
+      
+      <!-- Member count -->
+      <div class="text-xs text-gray-400 mt-1">
+        {{ group.members.length || 0 }} members
+      </div>
+    </div>
+  </div>
+  
+  <div *ngIf="groups.length === 0" class="text-center text-gray-500 py-8">
+    <div class="text-4xl mb-2">👥</div>
+    <p>No groups yet</p>
+    <p class="text-sm">Create a group to start chatting</p>
+  </div>
+</div>

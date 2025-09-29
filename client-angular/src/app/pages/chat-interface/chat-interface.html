@@ -1,2 +1,14 @@
 <app-navbar></app-navbar>
-<p>hi</p>
+<app-left-sidebar
+  [selectedUser]="selectedUser"
+  [selectedGroup]="selectedGroup"
+  [conversations]="conversations"
+  [allUsers]="allUsers"
+  [onlineUsers]="onlineUsers"
+  [messages]="messages"
+  (userSelect)="onUserSelect($event)"
+  (groupSelect)="onGroupSelect($event)"
+  (conversationsChange)="onConversationsChange($event)"
+  (allUsersChange)="onAllUsersChange($event)"
+  (groupsChange)="onGroupsChange($event)"
+></app-left-sidebar>
