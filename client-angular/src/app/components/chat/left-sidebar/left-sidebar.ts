@@ -69,7 +69,9 @@ export class LeftSidebar implements OnInit, OnDestroy {
     // Listen to token changes to load data
     this.subscriptions.push(
       this.token$.subscribe(token => {
+        console.log('Token subscription received:', token ? 'present' : 'missing');
         if (token) {
+          console.log('Loading data with token...');
           this.loadConversations();
           this.loadUsers();
           this.loadGroups();
@@ -103,9 +105,11 @@ export class LeftSidebar implements OnInit, OnDestroy {
 
   private loadConversations() {
     this.auth.token$.subscribe(token => {
+      console.log('Loading conversations with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchConversations(token).subscribe({
           next: (conversations) => {
+            console.log('Fetched conversations:', conversations);
             this.conversationsChange.emit(conversations);
             this.updateFilteredConversations();
           },
@@ -120,9 +124,11 @@ export class LeftSidebar implements OnInit, OnDestroy {
 
   private loadUsers() {
     this.auth.token$.subscribe(token => {
+      console.log('Loading users with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchUsers(token).subscribe({
           next: (users) => {
+            console.log('Fetched users:', users);
             this.allUsersChange.emit(users);
             this.updateFilteredUsers();
             this.checkBlockStatusForUsers();
@@ -138,9 +144,11 @@ export class LeftSidebar implements OnInit, OnDestroy {
 
   private loadGroups() {
     this.auth.token$.subscribe(token => {
+      console.log('Loading groups with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchUserGroups(token).subscribe({
           next: (userGroups) => {
+            console.log('Fetched groups:', userGroups);
             const groupsWithExtras = userGroups.map(g => ({
               ...g,
               unreadCount: (g as any).unreadCount ?? 0,

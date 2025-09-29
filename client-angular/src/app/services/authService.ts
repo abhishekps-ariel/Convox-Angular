@@ -36,17 +36,21 @@ export class AuthService {
   private loadFromStorage() {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
+    console.log('Loading from storage - token:', token ? 'present' : 'missing', 'user:', user ? 'present' : 'missing');
     if (token && user) {
       this.tokenSubject.next(token);
       this.userSubject.next(JSON.parse(user));
+      console.log('Token and user loaded from storage');
     }
   }
 
   private saveToStorage(token: string, user: User) {
+    console.log('Saving to storage - token:', token ? 'present' : 'missing', 'user:', user);
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     this.tokenSubject.next(token);
     this.userSubject.next(user);
+    console.log('Token and user saved to storage');
   }
 
   private clearStorage() {

@@ -58,11 +58,11 @@ export class ApiService {
 
   // Chat-specific API methods
   fetchUsers(token: string): Observable<User[]> {
-    return this.get<User[]>(`${environment.API_URL}/api/users`, token);
+    return this.get<User[]>(`${environment.API_URL}/api/auth/users`, token);
   }
 
   fetchConversations(token: string): Observable<Conversation[]> {
-    return this.get<Conversation[]>(`${environment.API_URL}/api/conversations`, token);
+    return this.get<Conversation[]>(`${environment.API_URL}/api/messages/conversations`, token);
   }
 
   fetchUserGroups(token: string): Observable<Group[]> {
@@ -70,10 +70,10 @@ export class ApiService {
   }
 
   markMessagesAsRead(token: string, senderId: string): Observable<any> {
-    return this.post(`${environment.API_URL}/api/messages/markAsRead`, { senderId }, token);
+    return this.put(`${environment.API_URL}/api/messages/mark-read/${senderId}`, {}, token);
   }
 
   checkBlockStatus(token: string, userId: string): Observable<{ isBlockedByMe: boolean; isBlockedByThem: boolean }> {
-    return this.get(`${environment.API_URL}/api/users/${userId}/block-status`, token);
+    return this.get(`${environment.API_URL}/api/auth/block-status/${userId}`, token);
   }
 }
