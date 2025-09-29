@@ -2,8 +2,10 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './apiService';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { environment } from '../environments/environment';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = environment.API_URL;
+
 export const AUTH_ENDPOINTS = {
   LOGIN: `${API_URL}/api/auth/login`,
   REGISTER: `${API_URL}/api/auth/register`,

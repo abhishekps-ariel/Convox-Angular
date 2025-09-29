@@ -2,7 +2,7 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject, Subscription } from 'rxjs';
-import { environment } from '../env/env';
+import { environment } from '../environments/environment';
 import type { Message, OnlineUser, Group, User } from '../types/chatTypes';
 import { AuthService } from './authService';
 import { Router } from '@angular/router';
