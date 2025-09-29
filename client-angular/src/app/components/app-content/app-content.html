@@ -10,15 +10,9 @@
   <app-register *ngIf="!isLoginMode()" (onToggleMode)="onToggleMode()"></app-register>
 </div>
 
-<div *ngIf="!loading() && user()" class="h-screen w-full flex flex-col overflow-hidden">
-  <app-navbar></app-navbar>
-  <div class="flex-1 overflow-hidden">
-    <!-- ChatInterface will be implemented later -->
-    <div class="flex h-full w-full bg-white items-center justify-center">
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to ConvoX!</h2>
-        <p class="text-gray-600">Chat interface will be implemented next</p>
+    <div *ngIf="!loading() && user()" class="h-screen w-full flex flex-col overflow-hidden">
+      <app-navbar></app-navbar>
+      <div class="flex-1 overflow-hidden">
+        <app-chat-interface></app-chat-interface>
       </div>
     </div>
-  </div>
-</div>

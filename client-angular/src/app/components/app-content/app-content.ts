@@ -4,10 +4,11 @@ import { AuthService } from '../../services/auth.service';
 import { Navbar } from '../navbar/navbar';
 import { Login } from '../login/login';
 import { Register } from '../register/register';
+import { ChatInterface } from '../chat-interface/chat-interface';
 
 @Component({
   selector: 'app-app-content',
-  imports: [CommonModule, Navbar, Login, Register],
+  imports: [CommonModule, Navbar, Login, Register, ChatInterface],
   templateUrl: './app-content.html'
 })
 export class AppContent {
