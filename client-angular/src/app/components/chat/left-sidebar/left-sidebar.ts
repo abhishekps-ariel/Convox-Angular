@@ -37,6 +37,10 @@ export class LeftSidebar implements OnInit, OnDestroy {
   showCreateGroupModal = false;
   activeTab: 'chats' | 'groups' = 'chats';
 
+  // Local data storage
+  localConversations: Conversation[] = [];
+  localAllUsers: User[] = [];
+
   // Filtered data (memoized)
   filteredConversations: Conversation[] = [];
   filteredGroups: GroupWithUnread[] = [];
@@ -59,6 +63,10 @@ export class LeftSidebar implements OnInit, OnDestroy {
   ngOnInit() {
     this.setupSubscriptions();
     this.loadInitialData();
+    // Initialize filtered arrays
+    this.updateFilteredConversations();
+    this.updateFilteredGroups();
+    this.updateFilteredUsers();
   }
 
   ngOnDestroy() {
@@ -108,14 +116,32 @@ export class LeftSidebar implements OnInit, OnDestroy {
       console.log('Loading conversations with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchConversations(token).subscribe({
-          next: (conversations) => {
-            console.log('Fetched conversations:', conversations);
+          next: (response: any) => {
+            console.log('Fetched conversations response:', response);
+            
+            // Handle different response structures
+            let conversations: any[] = [];
+            if (Array.isArray(response)) {
+              conversations = response;
+            } else if (response && Array.isArray(response.conversations)) {
+              conversations = response.conversations;
+            } else if (response && Array.isArray(response.data)) {
+              conversations = response.data;
+            } else {
+              console.warn('Unexpected conversations response structure:', response);
+              conversations = [];
+            }
+            
+            console.log('Processed conversations array:', conversations);
+            this.localConversations = conversations; // Store locally
             this.conversationsChange.emit(conversations);
             this.updateFilteredConversations();
           },
           error: (error) => {
             console.error('Error fetching conversations:', error);
-            this.auth.logout();
+            // Don't logout on conversations error, just show empty list
+            this.conversationsChange.emit([]);
+            this.updateFilteredConversations();
           }
         });
       }
@@ -127,15 +153,33 @@ export class LeftSidebar implements OnInit, OnDestroy {
       console.log('Loading users with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchUsers(token).subscribe({
-          next: (users) => {
-            console.log('Fetched users:', users);
+          next: (response: any) => {
+            console.log('Fetched users response:', response);
+            
+            // Handle different response structures
+            let users: any[] = [];
+            if (Array.isArray(response)) {
+              users = response;
+            } else if (response && Array.isArray(response.users)) {
+              users = response.users;
+            } else if (response && Array.isArray(response.data)) {
+              users = response.data;
+            } else {
+              console.warn('Unexpected users response structure:', response);
+              users = [];
+            }
+            
+            console.log('Processed users array:', users);
+            this.localAllUsers = users; // Store locally
             this.allUsersChange.emit(users);
             this.updateFilteredUsers();
             this.checkBlockStatusForUsers();
           },
           error: (error) => {
             console.error('Error fetching users:', error);
-            this.auth.logout();
+            // Don't logout on users error, just show empty list
+            this.allUsersChange.emit([]);
+            this.updateFilteredUsers();
           }
         });
       }
@@ -147,8 +191,23 @@ export class LeftSidebar implements OnInit, OnDestroy {
       console.log('Loading groups with token:', token ? 'present' : 'missing');
       if (token) {
         this.api.fetchUserGroups(token).subscribe({
-          next: (userGroups) => {
-            console.log('Fetched groups:', userGroups);
+          next: (response: any) => {
+            console.log('Fetched groups response:', response);
+            
+            // Handle different response structures
+            let userGroups: any[] = [];
+            if (Array.isArray(response)) {
+              userGroups = response;
+            } else if (response && Array.isArray(response.groups)) {
+              userGroups = response.groups;
+            } else if (response && Array.isArray(response.data)) {
+              userGroups = response.data;
+            } else {
+              console.warn('Unexpected groups response structure:', response);
+              userGroups = [];
+            }
+            
+            console.log('Processed groups array:', userGroups);
             const groupsWithExtras = userGroups.map(g => ({
               ...g,
               unreadCount: (g as any).unreadCount ?? 0,
@@ -161,7 +220,10 @@ export class LeftSidebar implements OnInit, OnDestroy {
           },
           error: (error) => {
             console.error('Error fetching groups:', error);
-            this.auth.logout();
+            // Don't logout on groups error, just show empty list
+            this.groups = [];
+            this.groupsChange.emit([]);
+            this.updateFilteredGroups();
           }
         });
       }
@@ -217,17 +279,34 @@ export class LeftSidebar implements OnInit, OnDestroy {
   }
 
   private updateFilteredConversations() {
+    console.log('updateFilteredConversations called with:', {
+      localConversations: this.localConversations,
+      searchQuery: this.searchQuery,
+      conversationsLength: this.localConversations?.length || 0
+    });
+    
+    if (!this.localConversations) {
+      this.filteredConversations = [];
+      return;
+    }
+    
     if (!this.searchQuery) {
-      this.filteredConversations = this.conversations;
+      this.filteredConversations = this.localConversations;
     } else {
-      this.filteredConversations = this.conversations.filter(conv => 
+      this.filteredConversations = this.localConversations.filter(conv => 
         conv.username.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
         conv.email.toLowerCase().includes(this.searchQuery.toLowerCase())
       );
     }
+    console.log('Updated filtered conversations:', this.filteredConversations);
   }
 
   private updateFilteredGroups() {
+    if (!this.groups) {
+      this.filteredGroups = [];
+      return;
+    }
+    
     if (!this.searchQuery) {
       this.filteredGroups = this.groups;
     } else {
@@ -235,15 +314,22 @@ export class LeftSidebar implements OnInit, OnDestroy {
         group.name.toLowerCase().includes(this.searchQuery.toLowerCase())
       );
     }
+    console.log('Updated filtered groups:', this.filteredGroups);
   }
 
   private updateFilteredUsers() {
-    this.filteredUsers = this.allUsers.filter(
+    if (!this.localAllUsers) {
+      this.filteredUsers = [];
+      return;
+    }
+    
+    this.filteredUsers = this.localAllUsers.filter(
       (u) =>
         u.id !== this.auth.currentUserId &&
         (u.username.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           u.email.toLowerCase().includes(this.searchQuery.toLowerCase()))
     );
+    console.log('Updated filtered users:', this.filteredUsers);
   }
 
   // User selection
@@ -459,6 +545,6 @@ export class LeftSidebar implements OnInit, OnDestroy {
 
   // Helper method for template
   getFilteredUsersForModal(): User[] {
-    return this.allUsers.filter(u => u.id !== this.auth.currentUserId);
+    return this.localAllUsers.filter(u => u.id !== this.auth.currentUserId);
   }
 }

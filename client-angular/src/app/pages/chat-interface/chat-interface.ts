@@ -44,6 +44,7 @@ export class ChatInterfaceComponent implements OnInit, OnDestroy {
   }
 
   onConversationsChange(conversations: Conversation[]) {
+    console.log('ChatInterface received conversations:', conversations);
     this.conversations = conversations;
   }
 
