@@ -37,10 +37,12 @@ export class ChatInterface implements OnInit, OnDestroy {
   ) {
     // Subscribe to auth service changes
     this.authService.user$.subscribe(user => {
+      console.log('ChatInterface: Auth service user changed:', user);
       this.user.set(user);
 
       // Reset all state when user changes (logout/login)
       if (!user) {
+        console.log('ChatInterface: User logged out, resetting state');
         this.conversations.set([]);
         this.allUsers.set([]);
         this.selectedUser.set(null);
@@ -50,6 +52,7 @@ export class ChatInterface implements OnInit, OnDestroy {
         this.groups.set([]);
         this.socketService.disconnect();
       } else {
+        console.log('ChatInterface: User logged in, initializing data');
         // Initialize data when user logs in
         this.initializeData();
       }
@@ -131,21 +134,42 @@ export class ChatInterface implements OnInit, OnDestroy {
   // Event handlers
   async onUserSelect(user: User | null) {
     console.log('ChatInterface: onUserSelect called with:', user);
-    console.log('ChatInterface: Stack trace:', new Error().stack);
     
-    this.selectedUser.set(user);
-    this.selectedGroup.set(null); // Close any selected group
-    
-    console.log('ChatInterface: selectedUser signal set to:', this.selectedUser());
-    
-    // Force change detection
-    this.cdr.detectChanges();
-    
-    if (user) {
-      await this.loadMessages();
-      // Check if selectedUser is still set after loadMessages
-      console.log('ChatInterface: selectedUser after loadMessages:', this.selectedUser());
-    } else {
+    try {
+      // Validate user object if not null
+      if (user && (!user.id || !user.username)) {
+        console.error('ChatInterface: Invalid user object received:', user);
+        return;
+      }
+      
+      this.selectedUser.set(user);
+      this.selectedGroup.set(null); // Close any selected group
+      
+      console.log('ChatInterface: selectedUser signal set to:', this.selectedUser());
+      
+      // Force change detection
+      this.cdr.detectChanges();
+      
+      if (user) {
+        console.log('ChatInterface: About to call loadMessages for user:', user.id);
+        await this.loadMessages();
+        // Check if selectedUser is still set after loadMessages
+        console.log('ChatInterface: selectedUser after loadMessages:', this.selectedUser());
+        console.log('ChatInterface: selectedUser should still be:', user);
+        
+        // If selectedUser was reset during loadMessages, restore it
+        if (!this.selectedUser() && user) {
+          console.log('ChatInterface: selectedUser was reset during loadMessages, restoring it');
+          this.selectedUser.set(user);
+        }
+      } else {
+        this.messages.set([]);
+      }
+    } catch (error) {
+      console.error('ChatInterface: Error in onUserSelect:', error);
+      // Reset to safe state
+      this.selectedUser.set(null);
+      this.selectedGroup.set(null);
       this.messages.set([]);
     }
   }
@@ -267,14 +291,35 @@ export class ChatInterface implements OnInit, OnDestroy {
       return;
     }
 
+    // Validate that we have either a user or group selected
+    if (!selectedUser && !selectedGroup) {
+      console.log('ChatInterface: No user or group selected');
+      this.messages.set([]);
+      return;
+    }
+
+    console.log('ChatInterface: About to fetch messages, selectedUser is:', selectedUser);
+
     try {
       let messages: Message[] = [];
       
       if (selectedUser) {
+        // Validate user object
+        if (!selectedUser.id) {
+          console.error('ChatInterface: Selected user has no id:', selectedUser);
+          return;
+        }
+        
         console.log('ChatInterface: Fetching direct messages for user:', selectedUser.id);
         // Load direct messages
         messages = await this.apiService.fetchMessages(token, selectedUser.id, () => this.authService.logout());
       } else if (selectedGroup) {
+        // Validate group object
+        if (!selectedGroup._id) {
+          console.error('ChatInterface: Selected group has no _id:', selectedGroup);
+          return;
+        }
+        
         console.log('ChatInterface: Fetching group messages for group:', selectedGroup._id);
         // Load group messages
         messages = await this.apiService.fetchGroupMessages(token, selectedGroup._id);
@@ -290,8 +335,12 @@ export class ChatInterface implements OnInit, OnDestroy {
         this.socketService.markGroupMessagesAsRead(selectedGroup._id);
       }
       
+      console.log('ChatInterface: loadMessages completed, selectedUser is now:', this.selectedUser());
+      
     } catch (error) {
       console.error('Error loading messages:', error);
+      // Set empty messages array on error
+      this.messages.set([]);
     }
   }
 }

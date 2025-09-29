@@ -1,4 +1,4 @@
-import { Component, signal, input, output, effect, Input, computed } from '@angular/core';
+import { Component, signal, input, output, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { SocketService } from '../../services/socket.service';
@@ -11,14 +11,14 @@ import { User, Message, OnlineUser, Conversation, Group } from '../../types/chat
   templateUrl: './chat-area.html'
 })
 export class ChatArea {
-  // Inputs from parent component
-  @Input() selectedUser: User | null = null;
-  @Input() selectedGroup: Group | null = null;
-  @Input() messages: Message[] = [];
-  @Input() onlineUsers: OnlineUser[] = [];
-  @Input() conversations: Conversation[] = [];
-  @Input() allUsers: User[] = [];
-  @Input() socket: any = null;
+  // Inputs from parent component using signals
+  selectedUser = input<User | null>(null);
+  selectedGroup = input<Group | null>(null);
+  messages = input<Message[]>([]);
+  onlineUsers = input<OnlineUser[]>([]);
+  conversations = input<Conversation[]>([]);
+  allUsers = input<User[]>([]);
+  socket = input<any>(null);
 
 
   // Outputs to parent component
@@ -96,13 +96,13 @@ export class ChatArea {
 
   // Get visible messages (filtered)
   get visibleMessages(): Message[] {
-    return this.filterMessagesForUser(this.messages, this.user()?.id);
+    return this.filterMessagesForUser(this.messages(), this.user()?.id);
   }
 
   // Message editing handler
   onMessageEdit(messageId: string, newText: string) {
     // Update the message in the local state
-    const updatedMessages = this.messages.map(msg => 
+    const updatedMessages = this.messages().map(msg => 
       msg._id === messageId 
         ? { ...msg, text: newText, isEdited: true, editedAt: new Date().toISOString() }
         : msg
@@ -110,7 +110,7 @@ export class ChatArea {
     this.onMessagesChange.emit(updatedMessages);
     
     // Update the conversation list with the edited message
-    const updatedConversations = this.conversations.map((conv: Conversation) => {
+    const updatedConversations = this.conversations().map((conv: Conversation) => {
       if (conv.lastMessage && conv.lastMessage._id === messageId) {
         return {
           ...conv,
@@ -130,7 +130,7 @@ export class ChatArea {
   // Message deletion handler
   onMessageDelete(messageId: string) {
     // Update the message in the local state to show as deleted
-    const updatedMessages = this.messages.map(msg => {
+    const updatedMessages = this.messages().map(msg => {
       if (msg._id === messageId) {
         if (msg.sender._id === this.user()?.id) {
           return { ...msg, deletedForSender: true, deletedAt: new Date().toISOString() };
@@ -155,7 +155,7 @@ export class ChatArea {
     this.onMessagesChange.emit(updatedMessages);
 
     // Update the conversation list if this is the last message
-    const updatedConversations = this.conversations.map((conv: Conversation) => {
+    const updatedConversations = this.conversations().map((conv: Conversation) => {
       if (conv.lastMessage && conv.lastMessage._id === messageId) {
         // For "delete for me", find the previous non-deleted message using updated messages
         const previousMessages = updatedMessages.filter(msg => 
@@ -186,13 +186,13 @@ export class ChatArea {
       ? message.receiver._id
       : message.sender._id;
     
-    const existingConvIndex = this.conversations.findIndex(
+    const existingConvIndex = this.conversations().findIndex(
       (conv) => conv._id === otherUserId
     );
 
     if (existingConvIndex >= 0) {
       // Update existing conversation
-      const updatedConversations = [...this.conversations];
+      const updatedConversations = [...this.conversations()];
       const existingConv = updatedConversations[existingConvIndex];
 
       const newUnreadCount = shouldIncrementUnread && message.receiver._id === this.user()?.id
@@ -221,7 +221,7 @@ export class ChatArea {
         unreadCount: newUnreadCount,
       };
 
-      this.onConversationsChange.emit([newConversation, ...this.conversations]);
+      this.onConversationsChange.emit([newConversation, ...this.conversations()]);
     }
   }
 
@@ -235,14 +235,14 @@ export class ChatArea {
 
     // Log when inputs change for debugging
     effect(() => {
-      console.log('ChatArea: selectedUser changed:', this.selectedUser);
-      console.log('ChatArea: selectedGroup changed:', this.selectedGroup);
-      console.log('ChatArea: messages changed:', this.messages.length);
-      if (this.selectedUser) {
-        console.log('ChatArea: User selected:', this.selectedUser?.username);
+      console.log('ChatArea: selectedUser changed:', this.selectedUser());
+      console.log('ChatArea: selectedGroup changed:', this.selectedGroup());
+      console.log('ChatArea: messages changed:', this.messages().length);
+      if (this.selectedUser()) {
+        console.log('ChatArea: User selected:', this.selectedUser()?.username);
       }
-      if (this.selectedGroup) {
-        console.log('ChatArea: Group selected:', this.selectedGroup?.name);
+      if (this.selectedGroup()) {
+        console.log('ChatArea: Group selected:', this.selectedGroup()?.name);
       }
     });
   }
@@ -256,8 +256,17 @@ export class ChatArea {
   onSendMessage(event: Event) {
     event.preventDefault();
     const messageText = this.newMessage().trim();
+    const currentSelectedUser = this.selectedUser();
+    const currentSelectedGroup = this.selectedGroup();
 
-    if (!messageText || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected) {
+    // Validate inputs and socket connection
+    if (!messageText || (!currentSelectedUser && !currentSelectedGroup) || !this.socketService.connected) {
+      console.log('ChatArea: Cannot send message - invalid conditions:', {
+        hasMessage: !!messageText,
+        hasSelectedUser: !!currentSelectedUser,
+        hasSelectedGroup: !!currentSelectedGroup,
+        socketConnected: this.socketService.connected
+      });
       return;
     }
 
@@ -267,24 +276,24 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
-      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
+      receiver: currentSelectedUser ? { _id: currentSelectedUser.id, username: currentSelectedUser.username } : undefined,
+      group: currentSelectedGroup ? { _id: currentSelectedGroup._id, name: currentSelectedGroup.name } : undefined,
       text: messageText,
       messageType: 'text',
       createdAt: new Date().toISOString(),
     };
 
     // Add to messages
-    const currentMessages = this.messages;
+    const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser) {
+    if (currentSelectedUser) {
       // Direct message
-      this.socketService.sendMessage(this.selectedUser.id, messageText);
-    } else if (this.selectedGroup) {
+      this.socketService.sendMessage(currentSelectedUser.id, messageText);
+    } else if (currentSelectedGroup) {
       // Group message
-      this.socketService.sendGroupMessage(this.selectedGroup._id, messageText);
+      this.socketService.sendGroupMessage(currentSelectedGroup._id, messageText);
     }
   }
 
@@ -320,7 +329,18 @@ export class ChatArea {
   }
 
   onSendImage() {
-    if (!this.selectedImage() || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected || this.isUploading()) {
+    const currentSelectedUser = this.selectedUser();
+    const currentSelectedGroup = this.selectedGroup();
+    
+    // Validate inputs and socket connection
+    if (!this.selectedImage() || (!currentSelectedUser && !currentSelectedGroup) || !this.socketService.connected || this.isUploading()) {
+      console.log('ChatArea: Cannot send image - invalid conditions:', {
+        hasImage: !!this.selectedImage(),
+        hasSelectedUser: !!currentSelectedUser,
+        hasSelectedGroup: !!currentSelectedGroup,
+        socketConnected: this.socketService.connected,
+        isUploading: this.isUploading()
+      });
       return;
     }
 
@@ -330,22 +350,22 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
-      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
+      receiver: currentSelectedUser ? { _id: currentSelectedUser.id, username: currentSelectedUser.username } : undefined,
+      group: currentSelectedGroup ? { _id: currentSelectedGroup._id, name: currentSelectedGroup.name } : undefined,
       text: '',
       imageUrl: this.selectedImage()!,
       messageType: 'image',
       createdAt: new Date().toISOString(),
     };
 
-    const currentMessages = this.messages;
+    const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser) {
-      this.socketService.sendMessage(this.selectedUser.id, '', 'image', this.selectedImage()!);
-    } else if (this.selectedGroup) {
-      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'image', this.selectedImage()!);
+    if (currentSelectedUser) {
+      this.socketService.sendMessage(currentSelectedUser.id, '', 'image', this.selectedImage()!);
+    } else if (currentSelectedGroup) {
+      this.socketService.sendGroupMessage(currentSelectedGroup._id, '', 'image', this.selectedImage()!);
     }
 
     this.selectedImage.set(null);
@@ -353,7 +373,18 @@ export class ChatArea {
   }
 
   onSendVideo() {
-    if (!this.selectedVideo() || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected || this.isUploading()) {
+    const currentSelectedUser = this.selectedUser();
+    const currentSelectedGroup = this.selectedGroup();
+    
+    // Validate inputs and socket connection
+    if (!this.selectedVideo() || (!currentSelectedUser && !currentSelectedGroup) || !this.socketService.connected || this.isUploading()) {
+      console.log('ChatArea: Cannot send video - invalid conditions:', {
+        hasVideo: !!this.selectedVideo(),
+        hasSelectedUser: !!currentSelectedUser,
+        hasSelectedGroup: !!currentSelectedGroup,
+        socketConnected: this.socketService.connected,
+        isUploading: this.isUploading()
+      });
       return;
     }
 
@@ -363,22 +394,22 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
-      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
+      receiver: currentSelectedUser ? { _id: currentSelectedUser.id, username: currentSelectedUser.username } : undefined,
+      group: currentSelectedGroup ? { _id: currentSelectedGroup._id, name: currentSelectedGroup.name } : undefined,
       text: '',
       videoUrl: this.selectedVideo()!,
       messageType: 'video',
       createdAt: new Date().toISOString(),
     };
 
-    const currentMessages = this.messages;
+    const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser) {
-      this.socketService.sendMessage(this.selectedUser.id, '', 'video', undefined, this.selectedVideo()!);
-    } else if (this.selectedGroup) {
-      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'video', undefined, this.selectedVideo()!);
+    if (currentSelectedUser) {
+      this.socketService.sendMessage(currentSelectedUser.id, '', 'video', undefined, this.selectedVideo()!);
+    } else if (currentSelectedGroup) {
+      this.socketService.sendGroupMessage(currentSelectedGroup._id, '', 'video', undefined, this.selectedVideo()!);
     }
 
     this.selectedVideo.set(null);
@@ -412,8 +443,9 @@ export class ChatArea {
 
   // Group management
   onLeaveGroup() {
-    if (this.selectedGroup) {
-      console.log('Leaving group:', this.selectedGroup?._id);
+    const currentSelectedGroup = this.selectedGroup();
+    if (currentSelectedGroup) {
+      console.log('Leaving group:', currentSelectedGroup._id);
       // Implementation will be added later
     }
   }
@@ -428,19 +460,21 @@ export class ChatArea {
 
   // Helper methods
   getOnlineMemberCount(): number {
-    if (!this.selectedGroup) return 0;
-    return this.selectedGroup.members.filter(member => 
-      this.onlineUsers.some(onlineUser => onlineUser.userId === member.user._id)
+    const currentSelectedGroup = this.selectedGroup();
+    if (!currentSelectedGroup) return 0;
+    return currentSelectedGroup.members.filter(member => 
+      this.onlineUsers().some(onlineUser => onlineUser.userId === member.user._id)
     ).length;
   }
 
   isUserMemberOfGroup(): boolean {
-    if (!this.selectedGroup || !this.user()) return false;
-    return this.selectedGroup.members.some(member => member.user._id === this.user()?.id);
+    const currentSelectedGroup = this.selectedGroup();
+    if (!currentSelectedGroup || !this.user()) return false;
+    return currentSelectedGroup.members.some(member => member.user._id === this.user()?.id);
   }
 
   isUserOnline(userId: string): boolean {
-    return this.onlineUsers.some((u) => u.userId === userId);
+    return this.onlineUsers().some((u) => u.userId === userId);
   }
 
   formatMessageTime(createdAt: string): string {
