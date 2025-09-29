@@ -49,6 +49,7 @@ export class GroupList {
   }
 
   onGroupClick(group: Group) {
+    console.log('GroupList: Group clicked:', group);
     this.onGroupSelect.emit(group);
   }
 }

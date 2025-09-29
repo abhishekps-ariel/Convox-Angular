@@ -47,6 +47,7 @@ export class ConversationList {
   }
 
   onConversationClick(conversation: Conversation) {
+    console.log('ConversationList: Conversation clicked:', conversation);
     // Create a user object from conversation data
     const user = {
       id: conversation._id,
@@ -55,6 +56,7 @@ export class ConversationList {
       bio: conversation.bio,
       profilePicture: conversation.profilePicture
     };
+    console.log('ConversationList: Emitting user:', user);
     this.onUserSelect.emit(user);
   }
 }

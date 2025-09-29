@@ -1,4 +1,4 @@
-import { Component, signal, input, output, effect } from '@angular/core';
+import { Component, signal, input, output, effect, Input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { SocketService } from '../../services/socket.service';
@@ -6,18 +6,20 @@ import { User, Message, OnlineUser, Conversation, Group } from '../../types/chat
 
 @Component({
   selector: 'app-chat-area',
+  standalone: true,
   imports: [CommonModule],
   templateUrl: './chat-area.html'
 })
 export class ChatArea {
   // Inputs from parent component
-  selectedUser = input<User | null>(null);
-  selectedGroup = input<Group | null>(null);
-  messages = input<Message[]>([]);
-  onlineUsers = input<OnlineUser[]>([]);
-  conversations = input<Conversation[]>([]);
-  allUsers = input<User[]>([]);
-  socket = input<any>(null);
+  @Input() selectedUser: User | null = null;
+  @Input() selectedGroup: Group | null = null;
+  @Input() messages: Message[] = [];
+  @Input() onlineUsers: OnlineUser[] = [];
+  @Input() conversations: Conversation[] = [];
+  @Input() allUsers: User[] = [];
+  @Input() socket: any = null;
+
 
   // Outputs to parent component
   onMessagesChange = output<Message[]>();
@@ -41,12 +43,207 @@ export class ChatArea {
   // Current user
   user = signal<User | null>(null);
 
+  // Helper function to check if a message is deleted for a specific user
+  private isMessageDeletedForUser(message: Message, userId?: string): boolean {
+    if (!userId) return false;
+    
+    // For group messages, check if the current user deleted it for themselves
+    if (message.group) {
+      // If the current user is the sender, check deletedForSender
+      if (message.sender._id === userId) {
+        return message.deletedForSender || false;
+      } else {
+        // If the current user is not the sender, check if they're in deletedForUsers array
+        return !!(message.deletedForUsers && message.deletedForUsers.includes(userId));
+      }
+    }
+    
+    // For direct messages, use the original logic
+    if (message.sender._id === userId) {
+      return message.deletedForSender || false;
+    } else {
+      return message.deletedForReceiver || false;
+    }
+  }
+
+  // Filter messages based on delete status for the current user
+  private filterMessagesForUser(messages: Message[], userId?: string): Message[] {
+    if (!userId) return messages;
+    
+    return messages.filter(message => {
+      // Always show messages that are deleted for everyone (they show "This message was deleted")
+      if (message.deletedForEveryone) {
+        return true;
+      }
+      
+      // For group messages, check if the user deleted it for themselves
+      if (message.group) {
+        return !this.isMessageDeletedForUser(message, userId);
+      }
+      
+      // For direct messages, use the original logic
+      if (message.sender._id === userId && message.deletedForSender) {
+        return false;
+      }
+      
+      if (message.receiver && message.receiver._id === userId && message.deletedForReceiver) {
+        return false;
+      }
+      
+      return true;
+    });
+  }
+
+  // Get visible messages (filtered)
+  get visibleMessages(): Message[] {
+    return this.filterMessagesForUser(this.messages, this.user()?.id);
+  }
+
+  // Message editing handler
+  onMessageEdit(messageId: string, newText: string) {
+    // Update the message in the local state
+    const updatedMessages = this.messages.map(msg => 
+      msg._id === messageId 
+        ? { ...msg, text: newText, isEdited: true, editedAt: new Date().toISOString() }
+        : msg
+    );
+    this.onMessagesChange.emit(updatedMessages);
+    
+    // Update the conversation list with the edited message
+    const updatedConversations = this.conversations.map((conv: Conversation) => {
+      if (conv.lastMessage && conv.lastMessage._id === messageId) {
+        return {
+          ...conv,
+          lastMessage: {
+            ...conv.lastMessage,
+            text: newText,
+            isEdited: true,
+            editedAt: new Date().toISOString()
+          }
+        };
+      }
+      return conv;
+    });
+    this.onConversationsChange.emit(updatedConversations);
+  }
+
+  // Message deletion handler
+  onMessageDelete(messageId: string) {
+    // Update the message in the local state to show as deleted
+    const updatedMessages = this.messages.map(msg => {
+      if (msg._id === messageId) {
+        if (msg.sender._id === this.user()?.id) {
+          return { ...msg, deletedForSender: true, deletedAt: new Date().toISOString() };
+        } else {
+          if (msg.group) {
+            const deletedForUsers = msg.deletedForUsers || [];
+            if (!deletedForUsers.includes(this.user()?.id || '')) {
+              return { 
+                ...msg, 
+                deletedForUsers: [...deletedForUsers, this.user()?.id || ''],
+                deletedAt: new Date().toISOString() 
+              };
+            }
+          } else {
+            return { ...msg, deletedForReceiver: true, deletedAt: new Date().toISOString() };
+          }
+        }
+      }
+      return msg;
+    });
+
+    this.onMessagesChange.emit(updatedMessages);
+
+    // Update the conversation list if this is the last message
+    const updatedConversations = this.conversations.map((conv: Conversation) => {
+      if (conv.lastMessage && conv.lastMessage._id === messageId) {
+        // For "delete for me", find the previous non-deleted message using updated messages
+        const previousMessages = updatedMessages.filter(msg => 
+          msg._id !== messageId && 
+          !this.isMessageDeletedForUser(msg, this.user()?.id)
+        );
+        
+        const newLastMessage = previousMessages.length > 0 
+          ? previousMessages[previousMessages.length - 1]
+          : null;
+        
+        return {
+          ...conv,
+          lastMessage: newLastMessage
+        };
+      }
+      return conv;
+    });
+    this.onConversationsChange.emit(updatedConversations);
+  }
+
+  // Update conversation with new message (for real-time updates)
+  updateConversationWithNewMessage(message: Message, shouldIncrementUnread: boolean = true) {
+    // Only handle direct messages (not group messages)
+    if (!message.receiver || message.group) return;
+    
+    const otherUserId = message.sender._id === this.user()?.id
+      ? message.receiver._id
+      : message.sender._id;
+    
+    const existingConvIndex = this.conversations.findIndex(
+      (conv) => conv._id === otherUserId
+    );
+
+    if (existingConvIndex >= 0) {
+      // Update existing conversation
+      const updatedConversations = [...this.conversations];
+      const existingConv = updatedConversations[existingConvIndex];
+
+      const newUnreadCount = shouldIncrementUnread && message.receiver._id === this.user()?.id
+        ? existingConv.unreadCount + 1
+        : existingConv.unreadCount;
+
+      updatedConversations[existingConvIndex] = {
+        ...existingConv,
+        lastMessage: message,
+        unreadCount: newUnreadCount,
+      };
+
+      // Move to top
+      const [updatedConv] = updatedConversations.splice(existingConvIndex, 1);
+      this.onConversationsChange.emit([updatedConv, ...updatedConversations]);
+    } else {
+      // Create new conversation if it doesn't exist
+      const otherUser = message.sender._id === this.user()?.id ? message.receiver : message.sender;
+      const newUnreadCount = shouldIncrementUnread && message.receiver._id === this.user()?.id ? 1 : 0;
+
+      const newConversation: Conversation = {
+        _id: otherUserId,
+        username: otherUser.username,
+        email: (otherUser as any).email || "",
+        lastMessage: message,
+        unreadCount: newUnreadCount,
+      };
+
+      this.onConversationsChange.emit([newConversation, ...this.conversations]);
+    }
+  }
+
   constructor(
     private authService: AuthService,
     private socketService: SocketService
   ) {
     this.authService.user$.subscribe(user => {
       this.user.set(user);
+    });
+
+    // Log when inputs change for debugging
+    effect(() => {
+      console.log('ChatArea: selectedUser changed:', this.selectedUser);
+      console.log('ChatArea: selectedGroup changed:', this.selectedGroup);
+      console.log('ChatArea: messages changed:', this.messages.length);
+      if (this.selectedUser) {
+        console.log('ChatArea: User selected:', this.selectedUser?.username);
+      }
+      if (this.selectedGroup) {
+        console.log('ChatArea: Group selected:', this.selectedGroup?.name);
+      }
     });
   }
 
@@ -60,7 +257,7 @@ export class ChatArea {
     event.preventDefault();
     const messageText = this.newMessage().trim();
 
-    if (!messageText || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected) {
+    if (!messageText || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected) {
       return;
     }
 
@@ -70,24 +267,24 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser() ? { _id: this.selectedUser()!.id, username: this.selectedUser()!.username } : undefined,
-      group: this.selectedGroup() ? { _id: this.selectedGroup()!._id, name: this.selectedGroup()!.name } : undefined,
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
       text: messageText,
       messageType: 'text',
       createdAt: new Date().toISOString(),
     };
 
     // Add to messages
-    const currentMessages = this.messages();
+    const currentMessages = this.messages;
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser()) {
+    if (this.selectedUser) {
       // Direct message
-      this.socketService.sendMessage(this.selectedUser()!.id, messageText);
-    } else if (this.selectedGroup()) {
+      this.socketService.sendMessage(this.selectedUser.id, messageText);
+    } else if (this.selectedGroup) {
       // Group message
-      this.socketService.sendGroupMessage(this.selectedGroup()!._id, messageText);
+      this.socketService.sendGroupMessage(this.selectedGroup._id, messageText);
     }
   }
 
@@ -123,7 +320,7 @@ export class ChatArea {
   }
 
   onSendImage() {
-    if (!this.selectedImage() || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected || this.isUploading()) {
+    if (!this.selectedImage() || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected || this.isUploading()) {
       return;
     }
 
@@ -133,22 +330,22 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser() ? { _id: this.selectedUser()!.id, username: this.selectedUser()!.username } : undefined,
-      group: this.selectedGroup() ? { _id: this.selectedGroup()!._id, name: this.selectedGroup()!.name } : undefined,
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
       text: '',
       imageUrl: this.selectedImage()!,
       messageType: 'image',
       createdAt: new Date().toISOString(),
     };
 
-    const currentMessages = this.messages();
+    const currentMessages = this.messages;
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser()) {
-      this.socketService.sendMessage(this.selectedUser()!.id, '', 'image', this.selectedImage()!);
-    } else if (this.selectedGroup()) {
-      this.socketService.sendGroupMessage(this.selectedGroup()!._id, '', 'image', this.selectedImage()!);
+    if (this.selectedUser) {
+      this.socketService.sendMessage(this.selectedUser.id, '', 'image', this.selectedImage()!);
+    } else if (this.selectedGroup) {
+      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'image', this.selectedImage()!);
     }
 
     this.selectedImage.set(null);
@@ -156,7 +353,7 @@ export class ChatArea {
   }
 
   onSendVideo() {
-    if (!this.selectedVideo() || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected || this.isUploading()) {
+    if (!this.selectedVideo() || (!this.selectedUser && !this.selectedGroup) || !this.socketService.connected || this.isUploading()) {
       return;
     }
 
@@ -166,22 +363,22 @@ export class ChatArea {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user()?.id || '', username: this.user()?.username || '' },
-      receiver: this.selectedUser() ? { _id: this.selectedUser()!.id, username: this.selectedUser()!.username } : undefined,
-      group: this.selectedGroup() ? { _id: this.selectedGroup()!._id, name: this.selectedGroup()!.name } : undefined,
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
       text: '',
       videoUrl: this.selectedVideo()!,
       messageType: 'video',
       createdAt: new Date().toISOString(),
     };
 
-    const currentMessages = this.messages();
+    const currentMessages = this.messages;
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
     // Send via socket
-    if (this.selectedUser()) {
-      this.socketService.sendMessage(this.selectedUser()!.id, '', 'video', undefined, this.selectedVideo()!);
-    } else if (this.selectedGroup()) {
-      this.socketService.sendGroupMessage(this.selectedGroup()!._id, '', 'video', undefined, this.selectedVideo()!);
+    if (this.selectedUser) {
+      this.socketService.sendMessage(this.selectedUser.id, '', 'video', undefined, this.selectedVideo()!);
+    } else if (this.selectedGroup) {
+      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'video', undefined, this.selectedVideo()!);
     }
 
     this.selectedVideo.set(null);
@@ -215,8 +412,8 @@ export class ChatArea {
 
   // Group management
   onLeaveGroup() {
-    if (this.selectedGroup()) {
-      console.log('Leaving group:', this.selectedGroup()?._id);
+    if (this.selectedGroup) {
+      console.log('Leaving group:', this.selectedGroup?._id);
       // Implementation will be added later
     }
   }
@@ -231,19 +428,19 @@ export class ChatArea {
 
   // Helper methods
   getOnlineMemberCount(): number {
-    if (!this.selectedGroup()) return 0;
-    return this.selectedGroup()!.members.filter(member => 
-      this.onlineUsers().some(onlineUser => onlineUser.userId === member.user._id)
+    if (!this.selectedGroup) return 0;
+    return this.selectedGroup.members.filter(member => 
+      this.onlineUsers.some(onlineUser => onlineUser.userId === member.user._id)
     ).length;
   }
 
   isUserMemberOfGroup(): boolean {
-    if (!this.selectedGroup() || !this.user()) return false;
-    return this.selectedGroup()!.members.some(member => member.user._id === this.user()?.id);
+    if (!this.selectedGroup || !this.user()) return false;
+    return this.selectedGroup.members.some(member => member.user._id === this.user()?.id);
   }
 
   isUserOnline(userId: string): boolean {
-    return this.onlineUsers().some((u) => u.userId === userId);
+    return this.onlineUsers.some((u) => u.userId === userId);
   }
 
   formatMessageTime(createdAt: string): string {
@@ -254,3 +451,5 @@ export class ChatArea {
     });
   }
 }
+
+

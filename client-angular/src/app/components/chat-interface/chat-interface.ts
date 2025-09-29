@@ -1,4 +1,4 @@
-import { Component, signal, effect, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, effect, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
@@ -9,6 +9,7 @@ import { ChatArea } from '../chat-area/chat-area';
 
 @Component({
   selector: 'app-chat-interface',
+  standalone: true,
   imports: [CommonModule, LeftSidebar, ChatArea],
   templateUrl: './chat-interface.html',
   styleUrl: './chat-interface.css'
@@ -31,7 +32,8 @@ export class ChatInterface implements OnInit, OnDestroy {
   constructor(
     private authService: AuthService,
     private apiService: ApiService,
-    private socketService: SocketService
+    private socketService: SocketService,
+    private cdr: ChangeDetectorRef
   ) {
     // Subscribe to auth service changes
     this.authService.user$.subscribe(user => {
@@ -128,11 +130,21 @@ export class ChatInterface implements OnInit, OnDestroy {
 
   // Event handlers
   async onUserSelect(user: User | null) {
+    console.log('ChatInterface: onUserSelect called with:', user);
+    console.log('ChatInterface: Stack trace:', new Error().stack);
+    
     this.selectedUser.set(user);
     this.selectedGroup.set(null); // Close any selected group
     
+    console.log('ChatInterface: selectedUser signal set to:', this.selectedUser());
+    
+    // Force change detection
+    this.cdr.detectChanges();
+    
     if (user) {
       await this.loadMessages();
+      // Check if selectedUser is still set after loadMessages
+      console.log('ChatInterface: selectedUser after loadMessages:', this.selectedUser());
     } else {
       this.messages.set([]);
     }
@@ -248,19 +260,27 @@ export class ChatInterface implements OnInit, OnDestroy {
     const selectedGroup = this.selectedGroup();
     const token = this.authService.getCurrentToken();
     
-    if (!token) return;
+    console.log('ChatInterface: loadMessages called', { selectedUser, selectedGroup, hasToken: !!token });
+    
+    if (!token) {
+      console.log('ChatInterface: No token available');
+      return;
+    }
 
     try {
       let messages: Message[] = [];
       
       if (selectedUser) {
+        console.log('ChatInterface: Fetching direct messages for user:', selectedUser.id);
         // Load direct messages
         messages = await this.apiService.fetchMessages(token, selectedUser.id, () => this.authService.logout());
       } else if (selectedGroup) {
+        console.log('ChatInterface: Fetching group messages for group:', selectedGroup._id);
         // Load group messages
         messages = await this.apiService.fetchGroupMessages(token, selectedGroup._id);
       }
       
+      console.log('ChatInterface: Loaded messages:', messages.length);
       this.messages.set(messages);
       
       // Mark messages as read

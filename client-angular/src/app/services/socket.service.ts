@@ -1,19 +1,10 @@
 import { Injectable, signal, effect } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { User, Message, OnlineUser, Group } from '../types/chat-types';
+import { io, Socket } from 'socket.io-client';
+import { environment } from '../environment/environment';
 
-const SOCKET_URL = 'http://localhost:5000'; // Replace with your socket URL
-
-// Socket types - will be properly imported when socket.io-client is working
-interface Socket {
-  connected: boolean;
-  emit(event: string, data?: any): void;
-  on(event: string, callback: (data?: any) => void): void;
-  close(): void;
-}
-
-// Socket.io client function - will be properly imported when working
-declare const io: (url: string, options?: any) => Socket;
+const SOCKET_URL = environment.socketUrl;
 
 // Performance optimization: Debounce utility
 const debounce = <T extends (...args: any[]) => void>(func: T, delay: number): T => {
