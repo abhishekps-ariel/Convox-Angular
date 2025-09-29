@@ -254,4 +254,176 @@ export class ApiService {
     );
     return data?.messages || [];
   }
+
+  async fetchGroupDetails(token: string, groupId: string): Promise<Group | null> {
+    const data = await this.makeGetRequest<{ group: Group }>(
+      GROUP_ENDPOINTS.BY_ID(groupId),
+      token,
+      undefined,
+      'fetching group details'
+    );
+    return data?.group || null;
+  }
+
+  async addMembersToGroup(token: string, groupId: string, memberIds: string[]): Promise<Group | null> {
+    const response = await this.makeRequest<{ group: Group }>(
+      GROUP_ENDPOINTS.MEMBERS(groupId),
+      token,
+      'POST',
+      { memberIds },
+      'adding members'
+    );
+    return response?.group || null;
+  }
+
+  async removeMemberFromGroup(
+    token: string,
+    groupId: string,
+    memberId: string
+  ): Promise<{ message: string } | null> {
+    return this.makeRequest<{ message: string }>(
+      GROUP_ENDPOINTS.MEMBER(groupId, memberId),
+      token,
+      'DELETE',
+      undefined,
+      'removing member'
+    );
+  }
+
+  async leaveGroup(token: string, groupId: string): Promise<{ message: string } | null> {
+    return this.makeRequest<{ message: string }>(
+      GROUP_ENDPOINTS.LEAVE(groupId),
+      token,
+      'DELETE',
+      undefined,
+      'leaving group'
+    );
+  }
+
+  async markGroupMessagesAsRead(
+    token: string,
+    groupId: string
+  ): Promise<{ modifiedCount: number } | null> {
+    return this.makeRequest<{ modifiedCount: number }>(
+      GROUP_ENDPOINTS.MARK_READ(groupId),
+      token,
+      'PUT',
+      undefined,
+      'marking group messages as read'
+    );
+  }
+
+  async updateGroupIcon(token: string, groupId: string, icon: string): Promise<Group | null> {
+    return this.makeDataRequest<Group>(
+      GROUP_ENDPOINTS.ICON(groupId),
+      token,
+      'PUT',
+      { icon },
+      undefined,
+      'updating group icon'
+    );
+  }
+
+  async removeGroupIcon(token: string, groupId: string): Promise<Group | null> {
+    return this.makeRequest<Group>(
+      GROUP_ENDPOINTS.ICON(groupId),
+      token,
+      'DELETE',
+      undefined,
+      'removing group icon'
+    );
+  }
+
+  async removeGroupMember(token: string, groupId: string, memberId: string): Promise<Group | null> {
+    return this.makeRequest<Group>(
+      GROUP_ENDPOINTS.MEMBER(groupId, memberId),
+      token,
+      'DELETE',
+      undefined,
+      'removing group member'
+    );
+  }
+
+  async fetchGroupsInCommon(
+    token: string,
+    userId: string,
+    logout: () => void
+  ): Promise<Group[]> {
+    return this.makeGetRequest<Group[]>(
+      GROUP_ENDPOINTS.COMMON(userId),
+      token,
+      logout,
+      'fetching groups in common'
+    );
+  }
+
+  // Message editing and deletion
+  async editMessage(token: string, messageId: string, text: string): Promise<Message | null> {
+    return this.makeRequest<Message>(
+      MESSAGE_ENDPOINTS.EDIT(messageId),
+      token,
+      'PUT',
+      { text },
+      'editing message'
+    );
+  }
+
+  async deleteMessageForMe(
+    token: string,
+    messageId: string
+  ): Promise<{ message: string; messageId: string } | null> {
+    return this.makeRequest<{ message: string; messageId: string }>(
+      MESSAGE_ENDPOINTS.DELETE_FOR_ME(messageId),
+      token,
+      'DELETE',
+      undefined,
+      'deleting message for me'
+    );
+  }
+
+  async deleteMessageForEveryone(
+    token: string,
+    messageId: string
+  ): Promise<{ message: string; messageId: string } | null> {
+    return this.makeRequest<{ message: string; messageId: string }>(
+      MESSAGE_ENDPOINTS.DELETE_FOR_EVERYONE(messageId),
+      token,
+      'DELETE',
+      undefined,
+      'deleting message for everyone'
+    );
+  }
+
+  // Blocking functionality
+  async blockUser(token: string, userId: string): Promise<{ message: string } | null> {
+    return this.makeRequest<{ message: string }>(
+      AUTH_ENDPOINTS.BLOCK(userId),
+      token,
+      'POST',
+      undefined,
+      'blocking user'
+    );
+  }
+
+  async unblockUser(token: string, userId: string): Promise<{ message: string } | null> {
+    return this.makeRequest<{ message: string }>(
+      AUTH_ENDPOINTS.UNBLOCK(userId),
+      token,
+      'POST',
+      undefined,
+      'unblocking user'
+    );
+  }
+
+  async checkBlockStatus(
+    token: string,
+    userId: string
+  ): Promise<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean } | null> {
+    return this.makeGetRequest<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean }>(
+      AUTH_ENDPOINTS.BLOCK_STATUS(userId),
+      token,
+      undefined,
+      'checking block status'
+    );
+  }
 }

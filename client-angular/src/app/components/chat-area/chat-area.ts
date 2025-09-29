@@ -1,6 +1,7 @@
 import { Component, signal, input, output, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { SocketService } from '../../services/socket.service';
 import { User, Message, OnlineUser, Conversation, Group } from '../../types/chat-types';
 
 @Component({
@@ -40,7 +41,10 @@ export class ChatArea {
   // Current user
   user = signal<User | null>(null);
 
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private socketService: SocketService
+  ) {
     this.authService.user$.subscribe(user => {
       this.user.set(user);
     });
@@ -55,8 +59,8 @@ export class ChatArea {
   onSendMessage(event: Event) {
     event.preventDefault();
     const messageText = this.newMessage().trim();
-    
-    if (!messageText || (!this.selectedUser() && !this.selectedGroup()) || !this.socket()?.connected) {
+
+    if (!messageText || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected) {
       return;
     }
 
@@ -77,13 +81,13 @@ export class ChatArea {
     const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
-    // Send via socket (placeholder for now)
+    // Send via socket
     if (this.selectedUser()) {
       // Direct message
-      console.log('Sending direct message:', messageText);
+      this.socketService.sendMessage(this.selectedUser()!.id, messageText);
     } else if (this.selectedGroup()) {
       // Group message
-      console.log('Sending group message:', messageText);
+      this.socketService.sendGroupMessage(this.selectedGroup()!._id, messageText);
     }
   }
 
@@ -119,12 +123,12 @@ export class ChatArea {
   }
 
   onSendImage() {
-    if (!this.selectedImage() || (!this.selectedUser() && !this.selectedGroup()) || !this.socket()?.connected || this.isUploading()) {
+    if (!this.selectedImage() || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected || this.isUploading()) {
       return;
     }
 
     this.isUploading.set(true);
-    
+
     // Create temporary optimistic message
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
@@ -140,17 +144,24 @@ export class ChatArea {
     const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
 
+    // Send via socket
+    if (this.selectedUser()) {
+      this.socketService.sendMessage(this.selectedUser()!.id, '', 'image', this.selectedImage()!);
+    } else if (this.selectedGroup()) {
+      this.socketService.sendGroupMessage(this.selectedGroup()!._id, '', 'image', this.selectedImage()!);
+    }
+
     this.selectedImage.set(null);
     this.isUploading.set(false);
   }
 
   onSendVideo() {
-    if (!this.selectedVideo() || (!this.selectedUser() && !this.selectedGroup()) || !this.socket()?.connected || this.isUploading()) {
+    if (!this.selectedVideo() || (!this.selectedUser() && !this.selectedGroup()) || !this.socketService.connected || this.isUploading()) {
       return;
     }
 
     this.isUploading.set(true);
-    
+
     // Create temporary optimistic message
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
@@ -165,6 +176,13 @@ export class ChatArea {
 
     const currentMessages = this.messages();
     this.onMessagesChange.emit([...currentMessages, tempMessage]);
+
+    // Send via socket
+    if (this.selectedUser()) {
+      this.socketService.sendMessage(this.selectedUser()!.id, '', 'video', undefined, this.selectedVideo()!);
+    } else if (this.selectedGroup()) {
+      this.socketService.sendGroupMessage(this.selectedGroup()!._id, '', 'video', undefined, this.selectedVideo()!);
+    }
 
     this.selectedVideo.set(null);
     this.isUploading.set(false);

@@ -1,6 +1,8 @@
-import { Component, signal, effect } from '@angular/core';
+import { Component, signal, effect, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ApiService } from '../../services/api.service';
+import { SocketService } from '../../services/socket.service';
 import { User, Message, OnlineUser, Conversation, Group } from '../../types/chat-types';
 import { LeftSidebar } from '../left-sidebar/left-sidebar';
 import { ChatArea } from '../chat-area/chat-area';
@@ -11,7 +13,7 @@ import { ChatArea } from '../chat-area/chat-area';
   templateUrl: './chat-interface.html',
   styleUrl: './chat-interface.css'
 })
-export class ChatInterface {
+export class ChatInterface implements OnInit, OnDestroy {
   // State management using signals
   conversations = signal<Conversation[]>([]);
   allUsers = signal<User[]>([]);
@@ -20,15 +22,21 @@ export class ChatInterface {
   messages = signal<Message[]>([]);
   onlineUsers = signal<OnlineUser[]>([]);
   socket = signal<any>(null);
-  
+  groups = signal<Group[]>([]);
+
   // Current user from auth service
   user = signal<User | null>(null);
+  loading = signal<boolean>(true);
 
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private apiService: ApiService,
+    private socketService: SocketService
+  ) {
     // Subscribe to auth service changes
     this.authService.user$.subscribe(user => {
       this.user.set(user);
-      
+
       // Reset all state when user changes (logout/login)
       if (!user) {
         this.conversations.set([]);
@@ -37,19 +45,108 @@ export class ChatInterface {
         this.selectedGroup.set(null);
         this.messages.set([]);
         this.onlineUsers.set([]);
+        this.groups.set([]);
+        this.socketService.disconnect();
+      } else {
+        // Initialize data when user logs in
+        this.initializeData();
       }
     });
   }
 
-  // Event handlers
-  onUserSelect(user: User | null) {
-    this.selectedUser.set(user);
-    this.selectedGroup.set(null); // Close any selected group
+  ngOnInit() {
+    // Initialize socket service callbacks
+    this.socketService.setCallbacks({
+      onMessagesRead: (receiverId: string) => {
+        // Handle messages read
+        console.log('Messages read for:', receiverId);
+      },
+      updateConversation: (message: Message, shouldIncrementUnread?: boolean) => {
+        // Update conversation list
+        this.updateConversationWithMessage(message, shouldIncrementUnread);
+      },
+      onMessageEdited: (message: Message) => {
+        // Handle message edited
+        this.updateMessageInList(message);
+      },
+      onMessageDeleted: (message: Message) => {
+        // Handle message deleted
+        this.updateMessageInList(message);
+      },
+      onGroupMessageReceived: (message: Message, shouldIncrementUnread?: boolean) => {
+        // Handle group message received
+        this.updateGroupWithMessage(message, shouldIncrementUnread);
+      },
+      onGroupMessageEdited: (message: Message) => {
+        // Handle group message edited
+        this.updateGroupMessageInList(message);
+      },
+      onGroupMessageDeleted: (message: Message) => {
+        // Handle group message deleted
+        this.updateGroupMessageInList(message);
+      },
+      onGroupCreated: (group: Group) => {
+        // Handle group created
+        this.addGroupToList(group);
+      }
+    });
   }
 
-  onGroupSelect(group: Group | null) {
+  ngOnDestroy() {
+    this.socketService.disconnect();
+  }
+
+  private async initializeData() {
+    if (!this.user()) return;
+
+    this.loading.set(true);
+    const token = this.authService.getCurrentToken();
+    if (!token) return;
+
+    try {
+      // Load initial data
+      const [conversations, users, groups] = await Promise.all([
+        this.apiService.fetchConversations(token, () => this.authService.logout()),
+        this.apiService.fetchUsers(token, () => this.authService.logout()),
+        this.apiService.fetchUserGroups(token, () => this.authService.logout())
+      ]);
+
+      this.conversations.set(conversations);
+      this.allUsers.set(users);
+      this.groups.set(groups);
+
+      // Connect socket
+      this.socketService.connect(token, this.user()!, () => this.authService.logout());
+      this.socket.set(this.socketService);
+
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Event handlers
+  async onUserSelect(user: User | null) {
+    this.selectedUser.set(user);
+    this.selectedGroup.set(null); // Close any selected group
+    
+    if (user) {
+      await this.loadMessages();
+    } else {
+      this.messages.set([]);
+    }
+  }
+
+  async onGroupSelect(group: Group | null) {
     this.selectedGroup.set(group);
     this.selectedUser.set(null); // Close any selected user
+    
+    if (group) {
+      await this.loadMessages();
+    } else {
+      this.messages.set([]);
+    }
   }
 
   onConversationsChange(conversations: Conversation[]) {
@@ -85,5 +182,96 @@ export class ChatInterface {
   onGroupCreated(group: Group) {
     // Handle group created
     console.log('Group created:', group);
+  }
+
+  // Helper methods for message and group management
+  private updateConversationWithMessage(message: Message, shouldIncrementUnread?: boolean) {
+    const conversations = this.conversations();
+    const updatedConversations = conversations.map(conv => {
+      if (message.receiver && conv.username === message.sender.username) {
+        return {
+          ...conv,
+          lastMessage: message,
+          unreadCount: shouldIncrementUnread ? conv.unreadCount + 1 : conv.unreadCount
+        };
+      }
+      return conv;
+    });
+    this.conversations.set(updatedConversations);
+  }
+
+  private updateMessageInList(message: Message) {
+    const messages = this.messages();
+    const updatedMessages = messages.map(msg => {
+      if (msg._id === message._id) {
+        return message;
+      }
+      return msg;
+    });
+    this.messages.set(updatedMessages);
+  }
+
+  private updateGroupWithMessage(message: Message, shouldIncrementUnread?: boolean) {
+    const groups = this.groups();
+    const updatedGroups = groups.map(group => {
+      if (message.group && group._id === message.group._id) {
+        return {
+          ...group,
+          latestMessage: {
+            messageId: message._id,
+            text: message.text,
+            messageType: message.messageType,
+            sender: message.sender._id,
+            senderUsername: message.sender.username,
+            createdAt: message.createdAt
+          }
+        };
+      }
+      return group;
+    });
+    this.groups.set(updatedGroups);
+  }
+
+  private updateGroupMessageInList(message: Message) {
+    // Update group message in the list
+    this.updateGroupWithMessage(message, false);
+  }
+
+  private addGroupToList(group: Group) {
+    const groups = this.groups();
+    this.groups.set([...groups, group]);
+  }
+
+  // Load messages when user/group is selected
+  async loadMessages() {
+    const selectedUser = this.selectedUser();
+    const selectedGroup = this.selectedGroup();
+    const token = this.authService.getCurrentToken();
+    
+    if (!token) return;
+
+    try {
+      let messages: Message[] = [];
+      
+      if (selectedUser) {
+        // Load direct messages
+        messages = await this.apiService.fetchMessages(token, selectedUser.id, () => this.authService.logout());
+      } else if (selectedGroup) {
+        // Load group messages
+        messages = await this.apiService.fetchGroupMessages(token, selectedGroup._id);
+      }
+      
+      this.messages.set(messages);
+      
+      // Mark messages as read
+      if (selectedUser) {
+        this.socketService.markMessagesAsRead(selectedUser.id);
+      } else if (selectedGroup) {
+        this.socketService.markGroupMessagesAsRead(selectedGroup._id);
+      }
+      
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
   }
 }

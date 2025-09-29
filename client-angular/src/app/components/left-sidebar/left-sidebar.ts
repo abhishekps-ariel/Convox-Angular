@@ -1,14 +1,17 @@
-import { Component, signal, input, output } from '@angular/core';
+import { Component, signal, input, output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ApiService } from '../../services/api.service';
 import { User, OnlineUser, Conversation, Group } from '../../types/chat-types';
+import { ConversationList } from '../conversation-list/conversation-list';
+import { GroupList } from '../group-list/group-list';
 
 @Component({
   selector: 'app-left-sidebar',
-  imports: [CommonModule],
+  imports: [CommonModule, ConversationList, GroupList],
   templateUrl: './left-sidebar.html'
 })
-export class LeftSidebar {
+export class LeftSidebar implements OnInit {
   // Inputs from parent component
   selectedUser = input<User | null>(null);
   selectedGroup = input<Group | null>(null);
@@ -30,17 +33,44 @@ export class LeftSidebar {
   showSearchResults = signal(false);
   blockedUsers = signal<Set<string>>(new Set());
   blockedByUsers = signal<Set<string>>(new Set());
-  groups = signal<any[]>([]);
+  groups = signal<Group[]>([]);
   showCreateGroupModal = signal(false);
   activeTab = signal<'chats' | 'groups'>('chats');
-  
+  loading = signal<boolean>(false);
+
   // Current user
   user = signal<User | null>(null);
 
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private apiService: ApiService
+  ) {
     this.authService.user$.subscribe(user => {
       this.user.set(user);
     });
+  }
+
+  ngOnInit() {
+    // Load groups when component initializes
+    this.loadGroups();
+  }
+
+  private async loadGroups() {
+    if (!this.user()) return;
+
+    this.loading.set(true);
+    const token = this.authService.getCurrentToken();
+    if (!token) return;
+
+    try {
+      const groups = await this.apiService.fetchUserGroups(token, () => this.authService.logout());
+      this.groups.set(groups);
+      this.onGroupsChange.emit(groups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   // Search functionality

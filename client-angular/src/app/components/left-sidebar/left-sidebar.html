@@ -87,33 +87,37 @@
     </div>
   </div>
 
-  <!-- Groups Tab -->
-  <div *ngIf="activeTab() === 'groups'" class="flex-1 overflow-y-auto">
-    <div class="px-6 py-3 border-b border-gray-200">
-      <button
-        (click)="onCreateGroup()"
-        class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-      >
-        Create New Group
-      </button>
-    </div>
-    <div class="pl-1">
-      <!-- GroupList component will be implemented later -->
-      <div class="p-4 text-center text-gray-500">
-        <p>Group list will be implemented next</p>
+      <!-- Groups Tab -->
+      <div *ngIf="activeTab() === 'groups'" class="flex-1 overflow-y-auto">
+        <div class="px-6 py-3 border-b border-gray-200">
+          <button
+            (click)="onCreateGroup()"
+            class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            Create New Group
+          </button>
+        </div>
+        <div class="pl-1">
+          <app-group-list
+            [groups]="groups()"
+            [onlineUsers]="onlineUsers()"
+            [selectedGroup]="selectedGroup()"
+            (onGroupSelect)="onGroupClick($event)"
+          ></app-group-list>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Conversations Tab -->
-  <div *ngIf="activeTab() === 'chats'" class="flex-1 overflow-y-auto">
-    <div class="pl-1">
-      <!-- ConversationList component will be implemented later -->
-      <div class="p-4 text-center text-gray-500">
-        <p>Conversation list will be implemented next</p>
+      <!-- Conversations Tab -->
+      <div *ngIf="activeTab() === 'chats'" class="flex-1 overflow-y-auto">
+        <div class="pl-1">
+          <app-conversation-list
+            [conversations]="conversations()"
+            [onlineUsers]="onlineUsers()"
+            [selectedUser]="selectedUser()"
+            (onUserSelect)="onUserClick($event)"
+          ></app-conversation-list>
+        </div>
       </div>
-    </div>
-  </div>
 
   <!-- Create Group Modal -->
   <div *ngIf="showCreateGroupModal()" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

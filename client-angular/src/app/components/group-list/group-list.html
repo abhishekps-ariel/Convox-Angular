@@ -1,0 +1,77 @@
+<div class="space-y-1">
+  <div *ngFor="let group of groups()" 
+       (click)="onGroupClick(group)"
+       class="flex items-center p-3 cursor-pointer hover:bg-gray-50 transition duration-200 rounded-lg"
+       [class]="selectedGroup()?._id === group._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''">
+    
+    <!-- Group Avatar -->
+    <div class="relative flex-shrink-0">
+      <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold overflow-hidden">
+        <img
+          *ngIf="group.icon"
+          [src]="group.icon"
+          [alt]="group.name"
+          class="w-full h-full object-cover"
+        />
+        <span *ngIf="!group.icon">
+          {{ getGroupInitial(group.name) }}
+        </span>
+      </div>
+      <span class="absolute bottom-0 right-0 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></span>
+    </div>
+
+    <!-- Content -->
+    <div class="ml-3 flex-1 overflow-hidden min-w-0">
+      <div class="flex items-center justify-between">
+        <h3 class="font-medium text-gray-900 truncate">
+          {{ group.name }}
+        </h3>
+        <div class="flex items-center space-x-2">
+          <span *ngIf="group.latestMessage" class="text-xs text-gray-500">
+            {{ formatLastMessageTime(group.latestMessage.createdAt) }}
+          </span>
+        </div>
+      </div>
+      
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-gray-500 truncate">
+          <span *ngIf="group.latestMessage">
+            <span *ngIf="group.latestMessage.messageType === 'text'">{{ group.latestMessage.text }}</span>
+            <span *ngIf="group.latestMessage.messageType === 'image'" class="flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+              </svg>
+              Image
+            </span>
+            <span *ngIf="group.latestMessage.messageType === 'video'" class="flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+              </svg>
+              Video
+            </span>
+            <span *ngIf="group.latestMessage.messageType === 'system'" class="text-gray-400 italic">
+              {{ group.latestMessage.text }}
+            </span>
+          </span>
+          <span *ngIf="!group.latestMessage" class="text-gray-400 italic">No messages yet</span>
+        </p>
+        <div class="flex items-center space-x-1 text-xs text-gray-400">
+          <span>{{ getOnlineMemberCount(group) }} online</span>
+          <span>•</span>
+          <span>{{ group.members.length }} total</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="groups().length === 0" class="p-4 text-center text-gray-500">
+    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+      <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    </div>
+    <p class="text-sm">No groups yet</p>
+    <p class="text-xs text-gray-400 mt-1">Create a group to get started!</p>
+  </div>
+</div>
