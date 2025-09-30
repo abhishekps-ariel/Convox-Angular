@@ -1,0 +1,31 @@
+<!-- Group Info Button -->
+<button
+  (click)="onShowGroupInfo()"
+  class="p-2 rounded-full hover:bg-gray-100 transition-colors"
+  title="Group info"
+>
+  <svg
+    class="w-5 h-5 text-gray-600"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+</button>
+
+<!-- Group Info Modal -->
+<app-group-info
+  *ngIf="showGroupInfo"
+  [group]="group"
+  [currentUser]="currentUser"
+  [onlineUsers]="onlineUsers"
+  (close)="onCloseGroupInfo()"
+  (leaveGroup)="onLeaveGroup($event)"
+  (addMembers)="onAddMembers($event)"
+></app-group-info>

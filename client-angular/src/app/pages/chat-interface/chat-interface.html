@@ -12,7 +12,7 @@
     (allUsersChange)="onAllUsersChange($event)"
     (groupsChange)="onGroupsChange($event)"
   ></app-left-sidebar>
-
+  
   <!-- Main Chat Area -->
   <div class="flex-1 flex flex-col h-full min-w-0">
     <!-- No Chat Selected -->
@@ -50,34 +50,39 @@
         <app-chat-header
           [selectedUser]="selectedUser"
           [onlineUsers]="onlineUsers"
+          (blockUser)="onBlockUser()"
         ></app-chat-header>
       </div>
-
+      
       <!-- Messages (scrollable middle section) -->
       <div class="flex-1 overflow-y-auto min-h-0">
         <app-message-area
           [messages]="messages"
           [isGroupChat]="false"
+          [forceScrollToBottom]="forceScrollToBottom"
+          (editMessage)="onEditMessage($event)"
+          (deleteForMe)="onDeleteForMe($event)"
+          (deleteForEveryone)="onDeleteForEveryone($event)"
         ></app-message-area>
       </div>
 
       <!-- Input (fixed at bottom) -->
       <div class="flex-none">
-        <app-input-message
-          [newMessage]="newMessage"
-          [selectedImage]="selectedImage"
-          [selectedVideo]="selectedVideo"
-          [isUploading]="isUploading"
-          [disabled]="false"
-          (messageChange)="onMessageChange($event)"
-          (sendMessage)="onSendMessage()"
-          (imageSelect)="onImageSelect($event)"
-          (videoSelect)="onVideoSelect($event)"
-          (sendImage)="onSendImage()"
-          (sendVideo)="onSendVideo()"
-          (removeSelectedImage)="onRemoveSelectedImage()"
-          (removeSelectedVideo)="onRemoveSelectedVideo()"
-        ></app-input-message>
+      <app-input-message
+        [newMessage]="newMessage"
+        [selectedImage]="selectedImage"
+        [selectedVideo]="selectedVideo"
+        [isUploading]="isUploading"
+        [disabled]="false"
+        (messageChange)="onMessageChange($event)"
+        (sendMessage)="onSendMessage()"
+        (imageSelect)="onImageSelect($event)"
+        (videoSelect)="onVideoSelect($event)"
+        (sendImage)="onSendImage()"
+        (sendVideo)="onSendVideo()"
+        (removeSelectedImage)="onRemoveSelectedImage()"
+        (removeSelectedVideo)="onRemoveSelectedVideo()"
+      ></app-input-message>
       </div>
     </ng-container>
 
@@ -106,34 +111,45 @@
               </p>
             </div>
           </div>
+          <app-group-menu
+            [group]="selectedGroup"
+            [currentUser]="user!"
+            [onlineUsers]="onlineUsers"
+            (leaveGroup)="onLeaveGroup($event)"
+            (addMembers)="onAddMembers($event)"
+          ></app-group-menu>
         </div>
       </div>
-
+      
       <!-- Messages (scrollable middle section) -->
       <div class="flex-1 overflow-y-auto min-h-0">
         <app-message-area
           [messages]="messages"
           [isGroupChat]="true"
+          [forceScrollToBottom]="forceScrollToBottom"
+          (editMessage)="onEditMessage($event)"
+          (deleteForMe)="onDeleteForMe($event)"
+          (deleteForEveryone)="onDeleteForEveryone($event)"
         ></app-message-area>
       </div>
 
       <!-- Input (fixed at bottom) -->
       <div class="flex-none">
-        <app-input-message
-          [newMessage]="newMessage"
-          [selectedImage]="selectedImage"
-          [selectedVideo]="selectedVideo"
-          [isUploading]="isUploading"
-          [disabled]="false"
-          (messageChange)="onMessageChange($event)"
-          (sendMessage)="onSendMessage()"
-          (imageSelect)="onImageSelect($event)"
-          (videoSelect)="onVideoSelect($event)"
-          (sendImage)="onSendImage()"
-          (sendVideo)="onSendVideo()"
-          (removeSelectedImage)="onRemoveSelectedImage()"
-          (removeSelectedVideo)="onRemoveSelectedVideo()"
-        ></app-input-message>
+      <app-input-message
+        [newMessage]="newMessage"
+        [selectedImage]="selectedImage"
+        [selectedVideo]="selectedVideo"
+        [isUploading]="isUploading"
+        [disabled]="false"
+        (messageChange)="onMessageChange($event)"
+        (sendMessage)="onSendMessage()"
+        (imageSelect)="onImageSelect($event)"
+        (videoSelect)="onVideoSelect($event)"
+        (sendImage)="onSendImage()"
+        (sendVideo)="onSendVideo()"
+        (removeSelectedImage)="onRemoveSelectedImage()"
+        (removeSelectedVideo)="onRemoveSelectedVideo()"
+      ></app-input-message>
       </div>
     </ng-container>
   </div>

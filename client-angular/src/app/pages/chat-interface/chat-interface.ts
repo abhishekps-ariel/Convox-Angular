@@ -8,11 +8,14 @@ import { ChatHeader } from '../../components/chat-header/chat-header';
 import { MessageArea } from '../../components/message-area/message-area';
 import { InputMessage } from '../../components/input-message/input-message';
 import { LeftSidebar } from '../../components/left-sidebar/left-sidebar';
+import { GroupMenu } from '../../components/group-menu/group-menu';
+import { AddMembersModal } from '../../components/add-members-modal/add-members-modal';
+import { ProfileInfo } from '../../components/profile-info/profile-info';
 
 @Component({
   selector: 'app-chat-interface',
   standalone: true,
-  imports: [CommonModule, ChatHeader, MessageArea, InputMessage, LeftSidebar],
+  imports: [CommonModule, ChatHeader, MessageArea, InputMessage, LeftSidebar, GroupMenu, AddMembersModal, ProfileInfo],
   templateUrl: './chat-interface.html',
   styleUrls: ['./chat-interface.css']
 })
@@ -32,6 +35,7 @@ export class ChatInterface implements OnInit, OnDestroy {
   selectedImage: string | null = null;
   selectedVideo: string | null = null;
   isUploading = false;
+  forceScrollToBottom = false;
 
   constructor(
     private authService: AuthService,
@@ -119,7 +123,12 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.selectedGroup = null;
     this.messages = [];
     this.socketService.setSelectedUser(user);
-    this.loadMessages();
+      this.loadMessages();
+    
+    // Force scroll to bottom when opening conversation
+    setTimeout(() => {
+      this.forceScrollToBottom = true;
+    }, 100);
   }
 
   onGroupSelect(group: Group): void {
@@ -137,6 +146,11 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.messages = [];
     this.socketService.setSelectedGroup(group);
     this.loadGroupMessages();
+    
+    // Force scroll to bottom when opening group
+    setTimeout(() => {
+      this.forceScrollToBottom = true;
+    }, 100);
   }
 
   async loadGroupMessages(): Promise<void> {
@@ -166,6 +180,40 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.groups = groups;
   }
 
+  onLeaveGroup(groupId: string): void {
+    // Implementation for leaving group
+    console.log('Leave group:', groupId);
+  }
+
+  onAddMembers(groupId: string): void {
+    // Implementation for adding members
+    console.log('Add members to group:', groupId);
+  }
+
+  onEditMessage(event: { messageId: string; newText: string }): void {
+    // Implementation for editing message
+    console.log('Edit message:', event);
+    // TODO: Implement message editing via socket
+  }
+
+  onDeleteForMe(messageId: string): void {
+    // Implementation for deleting message for me
+    console.log('Delete for me:', messageId);
+    // TODO: Implement delete for me via socket
+  }
+
+  onDeleteForEveryone(messageId: string): void {
+    // Implementation for deleting message for everyone
+    console.log('Delete for everyone:', messageId);
+    // TODO: Implement delete for everyone via socket
+  }
+
+  onBlockUser(): void {
+    // Implementation for blocking user
+    console.log('Block user');
+    // TODO: Implement user blocking
+  }
+
   onMessageChange(message: string): void {
     this.newMessage = message;
   }
@@ -189,9 +237,14 @@ export class ChatInterface implements OnInit, OnDestroy {
 
     this.messages = [...this.messages, tempMessage];
 
+    // Force scroll to bottom after sending message
+    setTimeout(() => {
+      this.forceScrollToBottom = true;
+    }, 50);
+
     // Send via socket
     if (this.selectedUser) {
-      this.socketService.sendMessage(this.selectedUser.id, messageText, 'text');
+    this.socketService.sendMessage(this.selectedUser.id, messageText, 'text');
     } else if (this.selectedGroup) {
       this.socketService.sendGroupMessage(this.selectedGroup._id, messageText, 'text');
     }

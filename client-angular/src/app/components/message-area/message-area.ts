@@ -1,4 +1,4 @@
-import { Component, Input, ElementRef, ViewChild, AfterViewChecked, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Message, User } from '../../types/chat-types';
 import { AuthService } from '../../services/auth.service';
@@ -16,10 +16,15 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   @Input() isGroupChat = false;
   @Input() forceScrollToBottom = false;
 
+  @Output() editMessage = new EventEmitter<{ messageId: string; newText: string }>();
+  @Output() deleteForMe = new EventEmitter<string>();
+  @Output() deleteForEveryone = new EventEmitter<string>();
+
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
   user: User | null = null;
   private shouldScroll = true;
+  showDeleteMenu: string | null = null;
 
   constructor(private authService: AuthService) {
     this.authService.user$.subscribe(user => {
@@ -28,7 +33,10 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['messages'] || changes['forceScrollToBottom']) {
+    if (changes['messages']) {
+      this.shouldScroll = true;
+    }
+    if (changes['forceScrollToBottom'] && this.forceScrollToBottom) {
       this.shouldScroll = true;
     }
   }
@@ -38,16 +46,19 @@ export class MessageArea implements AfterViewChecked, OnChanges {
       this.scrollToBottom();
       this.shouldScroll = false;
     }
+    if (this.forceScrollToBottom) {
+      this.scrollToBottom();
+    }
   }
 
   scrollToBottom(): void {
     try {
       if (this.messagesContainer) {
         const container = this.messagesContainer.nativeElement;
-        // Scroll to bottom instantly
-        requestAnimationFrame(() => {
+        // Use setTimeout to ensure DOM is updated
+        setTimeout(() => {
           container.scrollTop = container.scrollHeight;
-        });
+        }, 0);
       }
     } catch (err) {
       console.error('Scroll error:', err);
@@ -83,5 +94,34 @@ export class MessageArea implements AfterViewChecked, OnChanges {
     }
     if (message.sender._id === this.user?.id) return message.deletedForSender || false;
     return message.deletedForReceiver || false;
+  }
+
+  onEditMessage(messageId: string, newText: string): void {
+    this.editMessage.emit({ messageId, newText });
+  }
+
+  onDeleteForMe(messageId: string): void {
+    this.deleteForMe.emit(messageId);
+  }
+
+  onDeleteForEveryone(messageId: string): void {
+    this.deleteForEveryone.emit(messageId);
+  }
+
+  canEditMessage(message: Message): boolean {
+    return message.sender._id === this.user?.id && 
+           message.messageType === 'text' && 
+           !message.deletedForSender && 
+           !message.deletedForEveryone;
+  }
+
+  canDeleteMessage(message: Message): boolean {
+    return message.sender._id === this.user?.id && 
+           !message.deletedForSender && 
+           !message.deletedForEveryone;
+  }
+
+  toggleDeleteMenu(messageId: string): void {
+    this.showDeleteMenu = this.showDeleteMenu === messageId ? null : messageId;
   }
 }

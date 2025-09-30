@@ -1,19 +1,22 @@
-import { Component, Input, OnInit, OnChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { User, OnlineUser } from '../../types/chat-types';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
+import { ProfileInfo } from '../profile-info/profile-info';
 
 @Component({
   selector: 'app-chat-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ProfileInfo],
   templateUrl: './chat-header.html',
   styleUrls: ['./chat-header.css']
 })
 export class ChatHeader implements OnInit, OnChanges {
   @Input() selectedUser!: User;
   @Input() onlineUsers: OnlineUser[] = [];
+
+  @Output() blockUser = new EventEmitter<void>();
 
   user: User | null = null;
   token: string | null = null;
@@ -61,5 +64,9 @@ export class ChatHeader implements OnInit, OnChanges {
 
   toggleProfileInfo(): void {
     this.showProfileInfo = !this.showProfileInfo;
+  }
+
+  onBlockUser(): void {
+    this.blockUser.emit();
   }
 }
