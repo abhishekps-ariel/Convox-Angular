@@ -1,6 +1,7 @@
-<div class="flex-1 overflow-y-auto px-6 py-4 relative">
+<div class="px-6 py-4 h-full relative">
   <div *ngFor="let message of messages; let i = index">
     <ng-container *ngIf="!isMessageDeleted(message)">
+      
       <!-- Date Separator -->
       <div 
         *ngIf="shouldShowDateSeparator(message.createdAt, i > 0 ? messages[i-1].createdAt : null)"
@@ -107,6 +108,4 @@
       </div>
     </ng-container>
   </div>
-  
-  <div #messagesEnd></div>
 </div>

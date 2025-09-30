@@ -16,7 +16,7 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   @Input() isGroupChat = false;
   @Input() forceScrollToBottom = false;
 
-  @ViewChild('messagesEnd') messagesEnd?: ElementRef;
+  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
   user: User | null = null;
   private shouldScroll = true;
@@ -42,8 +42,9 @@ export class MessageArea implements AfterViewChecked, OnChanges {
 
   scrollToBottom(): void {
     try {
-      if (this.messagesEnd) {
-        this.messagesEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });
+      if (this.messagesContainer) {
+        const container = this.messagesContainer.nativeElement;
+        container.scrollTop = container.scrollHeight;
       }
     } catch (err) {
       console.error('Scroll error:', err);
@@ -69,26 +70,15 @@ export class MessageArea implements AfterViewChecked, OnChanges {
 
   formatTime(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   }
 
   isMessageDeleted(message: Message): boolean {
     if (message.group) {
-      if (message.sender._id === this.user?.id) {
-        return message.deletedForSender || false;
-      } else {
-        return !!(message.deletedForUsers && message.deletedForUsers.includes(this.user?.id || ''));
-      }
+      if (message.sender._id === this.user?.id) return message.deletedForSender || false;
+      return !!(message.deletedForUsers && message.deletedForUsers.includes(this.user?.id || ''));
     }
-    
-    if (message.sender._id === this.user?.id) {
-      return message.deletedForSender || false;
-    } else {
-      return message.deletedForReceiver || false;
-    }
+    if (message.sender._id === this.user?.id) return message.deletedForSender || false;
+    return message.deletedForReceiver || false;
   }
 }

@@ -9,11 +9,14 @@
     (conversationsChange)="onConversationsChange($event)"
     (allUsersChange)="onAllUsersChange($event)"
   ></app-left-sidebar>
-  
+
   <!-- Main Chat Area -->
-  <div class="flex-1 flex flex-col bg-white">
+  <div class="flex-1 flex flex-col h-full min-w-0">
     <!-- No Chat Selected -->
-    <div *ngIf="!selectedUser && !selectedGroup" class="flex-1 flex flex-col items-center justify-center text-center px-6">
+    <div
+      *ngIf="!selectedUser && !selectedGroup"
+      class="flex-1 flex flex-col items-center justify-center text-center px-6"
+    >
       <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
         <svg
           class="w-10 h-10 text-gray-400"
@@ -29,9 +32,7 @@
           />
         </svg>
       </div>
-      <h3 class="text-2xl font-bold text-gray-900 mb-2">
-        Welcome to ConvoX
-      </h3>
+      <h3 class="text-2xl font-bold text-gray-900 mb-2">Welcome to ConvoX</h3>
       <p class="text-gray-600 max-w-md">
         Select a conversation from the sidebar or search for users to
         start chatting. Your messages will appear here once you start a
@@ -41,61 +42,75 @@
 
     <!-- Selected User Chat -->
     <ng-container *ngIf="selectedUser">
-      <app-chat-header
-        [selectedUser]="selectedUser"
-        [onlineUsers]="onlineUsers"
-      ></app-chat-header>
-      
-      <app-message-area
-        [messages]="messages"
-        [isGroupChat]="false"
-      ></app-message-area>
+      <!-- Header (fixed at top) -->
+      <div class="flex-none">
+        <app-chat-header
+          [selectedUser]="selectedUser"
+          [onlineUsers]="onlineUsers"
+        ></app-chat-header>
+      </div>
 
-      <app-input-message
-        [newMessage]="newMessage"
-        [selectedImage]="selectedImage"
-        [selectedVideo]="selectedVideo"
-        [isUploading]="isUploading"
-        [disabled]="false"
-        (messageChange)="onMessageChange($event)"
-        (sendMessage)="onSendMessage()"
-        (imageSelect)="onImageSelect($event)"
-        (videoSelect)="onVideoSelect($event)"
-        (sendImage)="onSendImage()"
-        (sendVideo)="onSendVideo()"
-        (removeSelectedImage)="onRemoveSelectedImage()"
-        (removeSelectedVideo)="onRemoveSelectedVideo()"
-      ></app-input-message>
+      <!-- Messages (scrollable middle section) -->
+      <div class="flex-1 overflow-y-auto min-h-0">
+        <app-message-area
+          [messages]="messages"
+          [isGroupChat]="false"
+        ></app-message-area>
+      </div>
+
+      <!-- Input (fixed at bottom) -->
+      <div class="flex-none">
+        <app-input-message
+          [newMessage]="newMessage"
+          [selectedImage]="selectedImage"
+          [selectedVideo]="selectedVideo"
+          [isUploading]="isUploading"
+          [disabled]="false"
+          (messageChange)="onMessageChange($event)"
+          (sendMessage)="onSendMessage()"
+          (imageSelect)="onImageSelect($event)"
+          (videoSelect)="onVideoSelect($event)"
+          (sendImage)="onSendImage()"
+          (sendVideo)="onSendVideo()"
+          (removeSelectedImage)="onRemoveSelectedImage()"
+          (removeSelectedVideo)="onRemoveSelectedVideo()"
+        ></app-input-message>
+      </div>
     </ng-container>
 
-    <!-- Selected Group Chat (placeholder) -->
+    <!-- Selected Group Chat -->
     <ng-container *ngIf="selectedGroup">
-      <div class="px-6 py-4 border-b border-gray-200 bg-white">
-        <h3 class="text-lg font-semibold text-gray-900">
-          {{ selectedGroup.name }}
-        </h3>
+      <!-- Group Header (fixed at top) -->
+      <div class="flex-none px-6 py-4 border-b border-gray-200 bg-white">
+        <h3 class="text-lg font-semibold text-gray-900">{{ selectedGroup.name }}</h3>
       </div>
-      
-      <app-message-area
-        [messages]="messages"
-        [isGroupChat]="true"
-      ></app-message-area>
 
-      <app-input-message
-        [newMessage]="newMessage"
-        [selectedImage]="selectedImage"
-        [selectedVideo]="selectedVideo"
-        [isUploading]="isUploading"
-        [disabled]="false"
-        (messageChange)="onMessageChange($event)"
-        (sendMessage)="onSendMessage()"
-        (imageSelect)="onImageSelect($event)"
-        (videoSelect)="onVideoSelect($event)"
-        (sendImage)="onSendImage()"
-        (sendVideo)="onSendVideo()"
-        (removeSelectedImage)="onRemoveSelectedImage()"
-        (removeSelectedVideo)="onRemoveSelectedVideo()"
-      ></app-input-message>
+      <!-- Messages (scrollable middle section) -->
+      <div class="flex-1 overflow-y-auto min-h-0">
+        <app-message-area
+          [messages]="messages"
+          [isGroupChat]="true"
+        ></app-message-area>
+      </div>
+
+      <!-- Input (fixed at bottom) -->
+      <div class="flex-none">
+        <app-input-message
+          [newMessage]="newMessage"
+          [selectedImage]="selectedImage"
+          [selectedVideo]="selectedVideo"
+          [isUploading]="isUploading"
+          [disabled]="false"
+          (messageChange)="onMessageChange($event)"
+          (sendMessage)="onSendMessage()"
+          (imageSelect)="onImageSelect($event)"
+          (videoSelect)="onVideoSelect($event)"
+          (sendImage)="onSendImage()"
+          (sendVideo)="onSendVideo()"
+          (removeSelectedImage)="onRemoveSelectedImage()"
+          (removeSelectedVideo)="onRemoveSelectedVideo()"
+        ></app-input-message>
+      </div>
     </ng-container>
   </div>
 </div>
