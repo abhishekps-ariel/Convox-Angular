@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { AUTH_ENDPOINTS, MESSAGE_ENDPOINTS, GROUP_ENDPOINTS } from '../constants/api-endpoints';
 import { User, Message, Conversation, Group } from '../types/chat-types';
 
@@ -6,175 +8,66 @@ import { User, Message, Conversation, Group } from '../types/chat-types';
   providedIn: 'root'
 })
 export class ApiService {
-  private getAuthHeaders(token: string) {
-    return { Authorization: `Bearer ${token}` };
-  }
+  constructor(private http: HttpClient) {}
 
-  private getJsonHeaders(token: string) {
-    return {
+  private getHeaders(token: string): HttpHeaders {
+    return new HttpHeaders({
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
-  }
-
-  // Helper function for GET requests with auth
-  async makeGetRequest<T>(
-    url: string,
-    token: string,
-    logout?: () => void,
-    operationName?: string
-  ): Promise<T> {
-    try {
-      const response = await fetch(url, {
-        headers: this.getAuthHeaders(token),
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        logout?.();
-        return [] as T;
-      }
-      if (!response.ok) {
-        throw new Error(`Error ${operationName || 'fetching data'}: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`API ${operationName || 'request'} error:`, error);
-      return [] as T;
-    }
-  }
-
-  // Helper function for POST/PUT/DELETE requests with auth
-  async makeRequest<T>(
-    url: string,
-    token: string,
-    method: 'POST' | 'PUT' | 'DELETE',
-    body?: any,
-    operationName?: string
-  ): Promise<T | null> {
-    try {
-      const headers = body 
-        ? this.getJsonHeaders(token)
-        : this.getAuthHeaders(token);
-
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error ${operationName || 'performing operation'}: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`API ${operationName || 'request'} error:`, error);
-      throw error;
-    }
-  }
-
-  // Helper function for requests that return data with specific structure
-  async makeDataRequest<T>(
-    url: string,
-    token: string,
-    method: 'POST' | 'PUT' = 'POST',
-    body?: any,
-    dataKey?: string,
-    operationName?: string
-  ): Promise<T | null> {
-    try {
-      const response = await this.makeRequest<any>(url, token, method, body, operationName);
-      return dataKey ? response?.[dataKey] : response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Auth methods
-  async login(email: string, password: string): Promise<{ token: string; user: User }> {
-    const response = await fetch(AUTH_ENDPOINTS.LOGIN, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
+      'Authorization': `Bearer ${token}`
     });
+  }
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Authentication failed');
+  // Groups
+  async fetchGroupsInCommon(token: string, userId: string): Promise<Group[]> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.get<Group[]>(GROUP_ENDPOINTS.COMMON(userId), { headers })
+      );
+    } catch (error) {
+      console.error('Error fetching groups in common:', error);
+      return [];
     }
-
-    return data;
   }
 
-  async register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
-    const response = await fetch(AUTH_ENDPOINTS.REGISTER, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, email, password }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed');
+  // Users
+  async fetchUsers(token: string): Promise<User[]> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.get<User[]>(AUTH_ENDPOINTS.USERS, { headers })
+      );
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
     }
-
-    return data;
   }
 
-  // User methods
-  async fetchUsers(token: string, logout: () => void): Promise<User[]> {
-    return this.makeGetRequest<User[]>(
-      AUTH_ENDPOINTS.USERS,
-      token,
-      logout,
-      'fetching users'
-    );
+  // Conversations
+  async fetchConversations(token: string): Promise<Conversation[]> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.get<Conversation[]>(MESSAGE_ENDPOINTS.CONVERSATIONS, { headers })
+      );
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      return [];
+    }
   }
 
-  async updateProfile(
-    token: string,
-    profileData: { bio?: string; profilePicture?: string }
-  ): Promise<User> {
-    const response = await this.makeRequest<any>(
-      AUTH_ENDPOINTS.PROFILE,
-      token,
-      'PUT',
-      profileData,
-      'updating profile'
-    );
-    return response?.user;
-  }
-
-  // Message methods
-  async fetchConversations(token: string, logout: () => void): Promise<Conversation[]> {
-    return this.makeGetRequest<Conversation[]>(
-      MESSAGE_ENDPOINTS.CONVERSATIONS,
-      token,
-      logout,
-      'fetching conversations'
-    );
-  }
-
-  async fetchMessages(
-    token: string,
-    receiverId: string,
-    logout: () => void
-  ): Promise<Message[]> {
-    const data = await this.makeGetRequest<Message[]>(
-      MESSAGE_ENDPOINTS.BY_RECEIVER(receiverId),
-      token,
-      logout,
-      'fetching messages'
+  // Messages
+  async fetchMessages(token: string, receiverId: string): Promise<Message[]> {
+    try {
+      const headers = this.getHeaders(token);
+      const data = await firstValueFrom(
+        this.http.get<Message[]>(MESSAGE_ENDPOINTS.BY_RECEIVER(receiverId), { headers })
     );
     return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      return [];
+    }
   }
 
   async sendMessage(
@@ -185,44 +78,136 @@ export class ApiService {
     imageData?: string,
     videoData?: string
   ): Promise<Message | null> {
+    try {
+      const headers = this.getHeaders(token);
     const body: any = { receiverId, messageType };
     if (messageType === 'text') body.text = text;
     if (messageType === 'image' && imageData) body.imageData = imageData;
     if (messageType === 'video' && videoData) body.videoData = videoData;
 
-    return this.makeRequest<Message>(
-      MESSAGE_ENDPOINTS.BASE,
-      token,
-      'POST',
-      body,
-      'sending message'
-    );
+      return await firstValueFrom(
+        this.http.post<Message>(MESSAGE_ENDPOINTS.BASE, body, { headers })
+      );
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return null;
+    }
   }
 
-  async markMessagesAsRead(
+  async markMessagesAsRead(token: string, senderId: string): Promise<{ modifiedCount: number } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.put<{ modifiedCount: number }>(MESSAGE_ENDPOINTS.MARK_READ(senderId), {}, { headers })
+      );
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+      return null;
+    }
+  }
+
+  async editMessage(token: string, messageId: string, text: string): Promise<Message | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.put<Message>(MESSAGE_ENDPOINTS.EDIT(messageId), { text }, { headers })
+      );
+    } catch (error) {
+      console.error('Error editing message:', error);
+      return null;
+    }
+  }
+
+  async deleteMessageForMe(token: string, messageId: string): Promise<{ message: string; messageId: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<{ message: string; messageId: string }>(
+          MESSAGE_ENDPOINTS.DELETE_FOR_ME(messageId), 
+          { headers }
+        )
+      );
+    } catch (error) {
+      console.error('Error deleting message for me:', error);
+      return null;
+    }
+  }
+
+  async deleteMessageForEveryone(token: string, messageId: string): Promise<{ message: string; messageId: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<{ message: string; messageId: string }>(
+          MESSAGE_ENDPOINTS.DELETE_FOR_EVERYONE(messageId), 
+          { headers }
+        )
+      );
+    } catch (error) {
+      console.error('Error deleting message for everyone:', error);
+      return null;
+    }
+  }
+
+  // Blocking
+  async blockUser(token: string, userId: string): Promise<{ message: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.post<{ message: string }>(AUTH_ENDPOINTS.BLOCK(userId), {}, { headers })
+      );
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      return null;
+    }
+  }
+
+  async unblockUser(token: string, userId: string): Promise<{ message: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.post<{ message: string }>(AUTH_ENDPOINTS.UNBLOCK(userId), {}, { headers })
+      );
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      return null;
+    }
+  }
+
+  async checkBlockStatus(
     token: string,
-    senderId: string
-  ): Promise<{ modifiedCount: number } | null> {
-    return this.makeRequest<{ modifiedCount: number }>(
-      MESSAGE_ENDPOINTS.MARK_READ(senderId),
-      token,
-      'PUT',
-      undefined,
-      'marking messages as read'
-    );
+    userId: string
+  ): Promise<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.get<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean }>(
+          AUTH_ENDPOINTS.BLOCK_STATUS(userId), 
+          { headers }
+        )
+      );
+    } catch (error) {
+      console.error('Error checking block status:', error);
+      return null;
+    }
   }
 
-  // Group methods
-  async fetchUserGroups(token: string, logout: () => void): Promise<Group[]> {
-    const data = await this.makeGetRequest<{ groups: Group[] }>(
-      GROUP_ENDPOINTS.BASE,
-      token,
-      logout,
-      'fetching groups'
-    );
-    return data?.groups || [];
+  async updateProfile(
+    token: string,
+    profileData: { bio?: string; profilePicture?: string }
+  ): Promise<User | null> {
+    try {
+      const headers = this.getHeaders(token);
+      const response = await firstValueFrom(
+        this.http.put<{ user: User }>(AUTH_ENDPOINTS.PROFILE, profileData, { headers })
+      );
+      return response?.user || null;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return null;
+    }
   }
 
+  // Group management
   async createGroup(
     token: string,
     name: string,
@@ -230,14 +215,85 @@ export class ApiService {
     memberIds: string[],
     icon?: string
   ): Promise<Group | null> {
-    return this.makeDataRequest<Group>(
-      GROUP_ENDPOINTS.BASE,
-      token,
-      'POST',
-      { name, description, memberIds, icon },
-      'group',
-      'creating group'
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.post<Group>(GROUP_ENDPOINTS.BASE, { name, description, memberIds, icon }, { headers })
+      );
+    } catch (error) {
+      console.error('Error creating group:', error);
+      return null;
+    }
+  }
+
+  async fetchUserGroups(token: string): Promise<Group[]> {
+    try {
+      const headers = this.getHeaders(token);
+      const data = await firstValueFrom(
+        this.http.get<{ groups: Group[] }>(GROUP_ENDPOINTS.BASE, { headers })
+      );
+      return data?.groups || [];
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      return [];
+    }
+  }
+
+  async fetchGroupDetails(token: string, groupId: string): Promise<Group | null> {
+    try {
+      const headers = this.getHeaders(token);
+      const data = await firstValueFrom(
+        this.http.get<{ group: Group }>(GROUP_ENDPOINTS.BY_ID(groupId), { headers })
     );
+    return data?.group || null;
+    } catch (error) {
+      console.error('Error fetching group details:', error);
+      return null;
+    }
+  }
+
+  async addMembersToGroup(token: string, groupId: string, memberIds: string[]): Promise<Group | null> {
+    try {
+      const headers = this.getHeaders(token);
+      const response = await firstValueFrom(
+        this.http.post<{ group: Group }>(GROUP_ENDPOINTS.MEMBERS(groupId), { memberIds }, { headers })
+    );
+    return response?.group || null;
+    } catch (error) {
+      console.error('Error adding members:', error);
+      return null;
+    }
+  }
+
+  async removeMemberFromGroup(
+    token: string,
+    groupId: string,
+    memberId: string
+  ): Promise<{ message: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<{ message: string }>(
+      GROUP_ENDPOINTS.MEMBER(groupId, memberId),
+          { headers }
+        )
+      );
+    } catch (error) {
+      console.error('Error removing member:', error);
+      return null;
+    }
+  }
+
+  async leaveGroup(token: string, groupId: string): Promise<{ message: string } | null> {
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<{ message: string }>(GROUP_ENDPOINTS.LEAVE(groupId), { headers })
+      );
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      return null;
+    }
   }
 
   async fetchGroupMessages(
@@ -246,184 +302,73 @@ export class ApiService {
     page = 1,
     limit = 50
   ): Promise<Message[]> {
-    const data = await this.makeGetRequest<{ messages: Message[] }>(
-      GROUP_ENDPOINTS.MESSAGES(groupId, page, limit),
-      token,
-      undefined,
-      'fetching group messages'
-    );
-    return data?.messages || [];
-  }
-
-  async fetchGroupDetails(token: string, groupId: string): Promise<Group | null> {
-    const data = await this.makeGetRequest<{ group: Group }>(
-      GROUP_ENDPOINTS.BY_ID(groupId),
-      token,
-      undefined,
-      'fetching group details'
-    );
-    return data?.group || null;
-  }
-
-  async addMembersToGroup(token: string, groupId: string, memberIds: string[]): Promise<Group | null> {
-    const response = await this.makeRequest<{ group: Group }>(
-      GROUP_ENDPOINTS.MEMBERS(groupId),
-      token,
-      'POST',
-      { memberIds },
-      'adding members'
-    );
-    return response?.group || null;
-  }
-
-  async removeMemberFromGroup(
-    token: string,
-    groupId: string,
-    memberId: string
-  ): Promise<{ message: string } | null> {
-    return this.makeRequest<{ message: string }>(
-      GROUP_ENDPOINTS.MEMBER(groupId, memberId),
-      token,
-      'DELETE',
-      undefined,
-      'removing member'
-    );
-  }
-
-  async leaveGroup(token: string, groupId: string): Promise<{ message: string } | null> {
-    return this.makeRequest<{ message: string }>(
-      GROUP_ENDPOINTS.LEAVE(groupId),
-      token,
-      'DELETE',
-      undefined,
-      'leaving group'
-    );
+    try {
+      const headers = this.getHeaders(token);
+      const data = await firstValueFrom(
+        this.http.get<{ messages: Message[] }>(
+          GROUP_ENDPOINTS.MESSAGES(groupId, page, limit), 
+          { headers }
+        )
+      );
+      return data?.messages || [];
+    } catch (error) {
+      console.error('Error fetching group messages:', error);
+      return [];
+    }
   }
 
   async markGroupMessagesAsRead(
     token: string,
     groupId: string
   ): Promise<{ modifiedCount: number } | null> {
-    return this.makeRequest<{ modifiedCount: number }>(
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.put<{ modifiedCount: number }>(
       GROUP_ENDPOINTS.MARK_READ(groupId),
-      token,
-      'PUT',
-      undefined,
-      'marking group messages as read'
-    );
+          {}, 
+          { headers }
+        )
+      );
+    } catch (error) {
+      console.error('Error marking group messages as read:', error);
+      return null;
+    }
   }
 
   async updateGroupIcon(token: string, groupId: string, icon: string): Promise<Group | null> {
-    return this.makeDataRequest<Group>(
-      GROUP_ENDPOINTS.ICON(groupId),
-      token,
-      'PUT',
-      { icon },
-      undefined,
-      'updating group icon'
-    );
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.put<Group>(GROUP_ENDPOINTS.ICON(groupId), { icon }, { headers })
+      );
+    } catch (error) {
+      console.error('Error updating group icon:', error);
+      return null;
+    }
   }
 
   async removeGroupIcon(token: string, groupId: string): Promise<Group | null> {
-    return this.makeRequest<Group>(
-      GROUP_ENDPOINTS.ICON(groupId),
-      token,
-      'DELETE',
-      undefined,
-      'removing group icon'
-    );
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<Group>(GROUP_ENDPOINTS.ICON(groupId), { headers })
+      );
+    } catch (error) {
+      console.error('Error removing group icon:', error);
+      return null;
+    }
   }
 
   async removeGroupMember(token: string, groupId: string, memberId: string): Promise<Group | null> {
-    return this.makeRequest<Group>(
-      GROUP_ENDPOINTS.MEMBER(groupId, memberId),
-      token,
-      'DELETE',
-      undefined,
-      'removing group member'
-    );
-  }
-
-  async fetchGroupsInCommon(
-    token: string,
-    userId: string,
-    logout: () => void
-  ): Promise<Group[]> {
-    return this.makeGetRequest<Group[]>(
-      GROUP_ENDPOINTS.COMMON(userId),
-      token,
-      logout,
-      'fetching groups in common'
-    );
-  }
-
-  // Message editing and deletion
-  async editMessage(token: string, messageId: string, text: string): Promise<Message | null> {
-    return this.makeRequest<Message>(
-      MESSAGE_ENDPOINTS.EDIT(messageId),
-      token,
-      'PUT',
-      { text },
-      'editing message'
-    );
-  }
-
-  async deleteMessageForMe(
-    token: string,
-    messageId: string
-  ): Promise<{ message: string; messageId: string } | null> {
-    return this.makeRequest<{ message: string; messageId: string }>(
-      MESSAGE_ENDPOINTS.DELETE_FOR_ME(messageId),
-      token,
-      'DELETE',
-      undefined,
-      'deleting message for me'
-    );
-  }
-
-  async deleteMessageForEveryone(
-    token: string,
-    messageId: string
-  ): Promise<{ message: string; messageId: string } | null> {
-    return this.makeRequest<{ message: string; messageId: string }>(
-      MESSAGE_ENDPOINTS.DELETE_FOR_EVERYONE(messageId),
-      token,
-      'DELETE',
-      undefined,
-      'deleting message for everyone'
-    );
-  }
-
-  // Blocking functionality
-  async blockUser(token: string, userId: string): Promise<{ message: string } | null> {
-    return this.makeRequest<{ message: string }>(
-      AUTH_ENDPOINTS.BLOCK(userId),
-      token,
-      'POST',
-      undefined,
-      'blocking user'
-    );
-  }
-
-  async unblockUser(token: string, userId: string): Promise<{ message: string } | null> {
-    return this.makeRequest<{ message: string }>(
-      AUTH_ENDPOINTS.UNBLOCK(userId),
-      token,
-      'POST',
-      undefined,
-      'unblocking user'
-    );
-  }
-
-  async checkBlockStatus(
-    token: string,
-    userId: string
-  ): Promise<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean } | null> {
-    return this.makeGetRequest<{ isBlockedByMe: boolean; isBlockedByThem: boolean; isBlocked: boolean }>(
-      AUTH_ENDPOINTS.BLOCK_STATUS(userId),
-      token,
-      undefined,
-      'checking block status'
-    );
+    try {
+      const headers = this.getHeaders(token);
+      return await firstValueFrom(
+        this.http.delete<Group>(GROUP_ENDPOINTS.MEMBER(groupId, memberId), { headers })
+      );
+    } catch (error) {
+      console.error('Error removing group member:', error);
+      return null;
+    }
   }
 }

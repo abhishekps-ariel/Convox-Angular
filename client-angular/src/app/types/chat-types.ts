@@ -27,14 +27,10 @@ export interface Message {
   removedMemberId?: string;
 }
 
-export interface Conversation {
-  _id: string;
+export interface OnlineUser {
+  userId: string;
   username: string;
-  email: string;
-  bio?: string;
-  profilePicture?: string;
-  lastMessage: Message | null;
-  unreadCount: number;
+  socketId?: string;
 }
 
 export interface Group {
@@ -72,19 +68,27 @@ export interface Group {
   hasBeenRemoved?: boolean;
 }
 
-export interface OnlineUser {
-  userId: string;
-  socketId: string;
+export interface Conversation {
+  _id: string;
   username: string;
+  email: string;
+  bio?: string;
   profilePicture?: string;
+  lastMessage: Message | null;
+  unreadCount: number;
 }
 
-export interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  updateUser: (updatedUser: User) => void;
-  loading: boolean;
+export interface GroupConversation {
+  _id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  lastMessage: Message | null;
+  unreadCount: number;
+  memberCount: number;
+}
+
+export interface GroupWithUnread extends Group {
+  unreadCount: number;
+  lastMessage: Message | null;
 }

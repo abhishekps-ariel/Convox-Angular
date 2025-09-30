@@ -1,62 +1,54 @@
-import { Component, signal, input, output } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Conversation, OnlineUser } from '../../types/chat-types';
+import { User, Conversation, OnlineUser } from '../../types/chat-types';
+import { formatLastMessageTime } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-conversation-list',
+  standalone: true,
   imports: [CommonModule],
-  templateUrl: './conversation-list.html'
+  templateUrl: './conversation-list.html',
+  styleUrls: ['./conversation-list.css']
 })
 export class ConversationList {
-  // Inputs
-  conversations = input<Conversation[]>([]);
-  onlineUsers = input<OnlineUser[]>([]);
-  selectedUser = input<any>(null);
+  @Input() conversations: Conversation[] = [];
+  @Input() selectedUser: User | null = null;
+  @Input() currentUserId = '';
+  @Input() isUserBlockedByMe: (userId: string) => boolean = () => false;
+  @Input() isUserOnline: (userId: string) => boolean = () => false;
 
-  // Outputs
-  onUserSelect = output<any>();
+  @Output() userSelect = new EventEmitter<User>();
 
-  // Helper methods
-  isUserOnline(userId: string): boolean {
-    return this.onlineUsers().some((u) => u.userId === userId);
+  formatLastMessageTime(dateString: string): string {
+    return formatLastMessageTime(dateString);
   }
 
-  formatLastMessageTime(createdAt: string): string {
-    const date = new Date(createdAt);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-  }
-
-  getUserInitial(username: string): string {
-    return username ? username.charAt(0).toUpperCase() : 'U';
-  }
-
-  onConversationClick(conversation: Conversation) {
-    console.log('ConversationList: Conversation clicked:', conversation);
-    // Create a user object from conversation data
-    const user = {
+  onConversationClick(conversation: Conversation): void {
+    const user: User = {
       id: conversation._id,
       username: conversation.username,
       email: conversation.email,
       bio: conversation.bio,
       profilePicture: conversation.profilePicture
     };
-    console.log('ConversationList: Emitting user:', user);
-    this.onUserSelect.emit(user);
+    this.userSelect.emit(user);
+  }
+
+  getLastMessagePreview(conv: Conversation): string {
+    if (!conv.lastMessage) return 'No messages yet';
+    
+    if (conv.lastMessage.deletedForEveryone) {
+      return 'This message was deleted';
+    }
+    
+    if (conv.lastMessage.messageType === 'image') {
+      return '📷 Image';
+    }
+    
+    if (conv.lastMessage.messageType === 'video') {
+      return '🎥 Video';
+    }
+    
+    return conv.lastMessage.text || 'No messages yet';
   }
 }

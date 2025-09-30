@@ -1,0 +1,112 @@
+<div class="flex-1 overflow-y-auto px-6 py-4 relative">
+  <div *ngFor="let message of messages; let i = index">
+    <ng-container *ngIf="!isMessageDeleted(message)">
+      <!-- Date Separator -->
+      <div 
+        *ngIf="shouldShowDateSeparator(message.createdAt, i > 0 ? messages[i-1].createdAt : null)"
+        class="flex justify-center my-6"
+      >
+        <div class="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm font-medium">
+          {{ formatMessageDate(message.createdAt) }}
+        </div>
+      </div>
+
+      <!-- System Message -->
+      <div *ngIf="message.messageType === 'system'" class="flex justify-center mb-4">
+        <div class="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm italic max-w-[70%] text-center">
+          {{ message.text }}
+        </div>
+      </div>
+
+      <!-- Regular Message -->
+      <div *ngIf="message.messageType !== 'system'">
+        <!-- Sender Name (for group chats) -->
+        <div 
+          *ngIf="shouldShowSenderName(message, i > 0 ? messages[i-1] : null)"
+          [class]="'flex mb-1 ' + (message.sender._id === user?.id ? 'justify-end' : 'justify-start')"
+        >
+          <div class="text-xs text-gray-500 px-2">
+            {{ message.sender._id === user?.id ? 'You' : message.sender.username }}
+          </div>
+        </div>
+
+        <!-- Message Bubble -->
+        <div
+          [class]="'flex mb-4 ' + (message.sender._id === user?.id ? 'justify-end' : 'justify-start')"
+        >
+          <div class="relative group max-w-[70%]">
+            <div
+              [class]="'px-4 py-3 rounded-2xl break-words shadow-sm ' +
+                (message.sender._id === user?.id
+                  ? 'bg-gray-900 text-white rounded-br-md'
+                  : 'bg-white text-gray-900 rounded-bl-md border border-gray-200 shadow-sm')"
+            >
+              <!-- Deleted Message -->
+              <div *ngIf="message.deletedForEveryone" class="flex items-center text-gray-400 italic">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                </svg>
+                This message was deleted
+              </div>
+
+              <!-- Normal Message -->
+              <ng-container *ngIf="!message.deletedForEveryone">
+                <!-- Image Message -->
+                <div *ngIf="message.messageType === 'image' && message.imageUrl" class="mb-2">
+                  <img
+                    [src]="message.imageUrl"
+                    alt="Shared image"
+                    class="max-w-full h-auto max-h-64 rounded-lg cursor-pointer object-cover hover:opacity-90 transition-opacity"
+                  />
+                </div>
+
+                <!-- Video Message -->
+                <div *ngIf="message.messageType === 'video' && message.videoUrl" class="mb-2">
+                  <video
+                    [src]="message.videoUrl"
+                    class="max-w-full h-auto max-h-64 rounded-lg cursor-pointer object-cover"
+                    controls
+                  ></video>
+                </div>
+
+                <!-- Text Message -->
+                <p *ngIf="message.messageType === 'text'" class="text-sm leading-relaxed">
+                  {{ message.text }}
+                </p>
+
+                <!-- Message Footer (Time + Read Status) -->
+                <div class="flex items-center justify-between mt-2">
+                  <span
+                    [class]="'text-xs ' + (message.sender._id === user?.id ? 'text-gray-300' : 'text-gray-500')"
+                  >
+                    {{ formatTime(message.createdAt) }}
+                    <span *ngIf="message.isEdited" class="ml-1 italic">(edited)</span>
+                  </span>
+                  
+                  <!-- Read Status for Sent Messages -->
+                  <div *ngIf="message.sender._id === user?.id && !message.group" class="flex items-center">
+                    <!-- Double Blue Tick (Read) -->
+                    <div *ngIf="message.isRead" class="flex">
+                      <svg class="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                      </svg>
+                      <svg class="w-3 h-3 text-blue-500 -ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                      </svg>
+                    </div>
+                    <!-- Single Gray Tick (Sent) -->
+                    <svg *ngIf="!message.isRead" class="w-4 h-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                    </svg>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+  
+  <div #messagesEnd></div>
+</div>

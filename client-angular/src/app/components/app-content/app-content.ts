@@ -1,33 +1,37 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { User } from '../../types/chat-types';
+import { Login } from '../../pages/login/login';
+import { Register } from '../../pages/register/register';
+import { ChatInterface } from '../../pages/chat-interface/chat-interface';
 import { Navbar } from '../navbar/navbar';
-import { Login } from '../login/login';
-import { Register } from '../register/register';
-import { ChatInterface } from '../chat-interface/chat-interface';
 
 @Component({
   selector: 'app-app-content',
-  imports: [CommonModule, Navbar, Login, Register, ChatInterface],
-  templateUrl: './app-content.html'
+  standalone: true,
+  imports: [CommonModule, Login, Register, ChatInterface, Navbar],
+  templateUrl: './app-content.html',
+  styleUrls: ['./app-content.css']
 })
-export class AppContent {
-  isLoginMode = signal(true);
-  user = signal<any>(null);
-  loading = signal(true);
+export class AppContent implements OnInit {
+  user: User | null = null;
+  loading = true;
+  isLoginMode = true;
 
-  constructor(private authService: AuthService) {
-    // Subscribe to auth state changes
+  constructor(private authService: AuthService) {}
+
+  ngOnInit(): void {
     this.authService.user$.subscribe(user => {
-      this.user.set(user);
+      this.user = user;
     });
 
     this.authService.loading$.subscribe(loading => {
-      this.loading.set(loading);
+      this.loading = loading;
     });
   }
 
-  onToggleMode() {
-    this.isLoginMode.set(!this.isLoginMode());
+  toggleMode(): void {
+    this.isLoginMode = !this.isLoginMode;
   }
 }

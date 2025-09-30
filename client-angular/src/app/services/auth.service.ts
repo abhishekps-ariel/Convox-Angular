@@ -1,6 +1,7 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { ApiService } from './api.service';
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject } from 'rxjs';
+import { AUTH_ENDPOINTS } from '../constants/api-endpoints';
 import { User } from '../types/chat-types';
 
 @Injectable({
@@ -11,33 +12,39 @@ export class AuthService {
   private tokenSubject = new BehaviorSubject<string | null>(null);
   private loadingSubject = new BehaviorSubject<boolean>(true);
 
-  public user$ = this.userSubject.asObservable();
-  public token$ = this.tokenSubject.asObservable();
-  public loading$ = this.loadingSubject.asObservable();
+  user$ = this.userSubject.asObservable();
+  token$ = this.tokenSubject.asObservable();
+  loading$ = this.loadingSubject.asObservable();
 
-  // Signals for reactive programming
-  public user = signal<User | null>(null);
-  public token = signal<string | null>(null);
-  public loading = signal<boolean>(true);
+  get user(): User | null {
+    return this.userSubject.value;
+  }
 
-  constructor(private apiService: ApiService) {
+  get token(): string | null {
+    return this.tokenSubject.value;
+  }
+
+  get loading(): boolean {
+    return this.loadingSubject.value;
+  }
+
+  constructor(private http: HttpClient) {
     this.initializeAuth();
   }
 
-  private initializeAuth() {
-    // Check for stored token on app load
+  private initializeAuth(): void {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
       if (this.isTokenValid(storedToken)) {
-        this.setAuthData(storedToken, JSON.parse(storedUser));
+        this.tokenSubject.next(storedToken);
+        this.userSubject.next(JSON.parse(storedUser));
       } else {
-        // Token expired or invalid, clear it
         this.clearAuthData();
       }
     }
-    this.setLoading(false);
+    this.loadingSubject.next(false);
   }
 
   private isTokenValid(token: string): boolean {
@@ -50,38 +57,33 @@ export class AuthService {
     }
   }
 
-  private setAuthData(newToken: string, newUser: User) {
-    this.tokenSubject.next(newToken);
-    this.userSubject.next(newUser);
-    this.token.set(newToken);
-    this.user.set(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-  }
-
-  private clearAuthData() {
+  private clearAuthData(): void {
     this.userSubject.next(null);
     this.tokenSubject.next(null);
-    this.user.set(null);
-    this.token.set(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
 
-  private setLoading(loading: boolean) {
-    this.loadingSubject.next(loading);
-    this.loading.set(loading);
+  private saveAuthData(token: string, user: User): void {
+    this.tokenSubject.next(token);
+    this.userSubject.next(user);
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
   }
 
   async login(email: string, password: string): Promise<void> {
     try {
-      // Clear any existing tokens first
       this.clearAuthData();
       
-      const data = await this.apiService.login(email, password);
-      this.setAuthData(data.token, data.user);
+      const data = await this.http.post<{ token: string; user: User }>(
+        AUTH_ENDPOINTS.LOGIN,
+        { email, password }
+      ).toPromise();
+
+      if (data) {
+        this.saveAuthData(data.token, data.user);
+      }
     } catch (error) {
-      // Clear tokens on error
       this.clearAuthData();
       throw error;
     }
@@ -89,13 +91,17 @@ export class AuthService {
 
   async register(username: string, email: string, password: string): Promise<void> {
     try {
-      // Clear any existing tokens first
       this.clearAuthData();
       
-      const data = await this.apiService.register(username, email, password);
-      this.setAuthData(data.token, data.user);
+      const data = await this.http.post<{ token: string; user: User }>(
+        AUTH_ENDPOINTS.REGISTER,
+        { username, email, password }
+      ).toPromise();
+
+      if (data) {
+        this.saveAuthData(data.token, data.user);
+      }
     } catch (error) {
-      // Clear tokens on error
       this.clearAuthData();
       throw error;
     }
@@ -107,19 +113,6 @@ export class AuthService {
 
   updateUser(updatedUser: User): void {
     this.userSubject.next(updatedUser);
-    this.user.set(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
-  }
-
-  getCurrentUser(): User | null {
-    return this.userSubject.value;
-  }
-
-  getCurrentToken(): string | null {
-    return this.tokenSubject.value;
-  }
-
-  isAuthenticated(): boolean {
-    return this.userSubject.value !== null;
   }
 }

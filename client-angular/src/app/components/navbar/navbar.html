@@ -2,22 +2,23 @@
   <div class="flex items-center justify-between">
     <!-- User Profile Section -->
     <button
-      (click)="onProfileClick()"
+      (click)="openProfileModal()"
+      type="button"
       class="flex items-center bg-gray-50 rounded-lg px-4 py-2 border border-gray-200 hover:bg-gray-100 transition-colors"
     >
       <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
         <img
-          *ngIf="user()?.profilePicture"
-          [src]="user()?.profilePicture"
+          *ngIf="user?.profilePicture"
+          [src]="user?.profilePicture"
           alt="Profile"
           class="w-full h-full object-cover"
         />
-        <span *ngIf="!user()?.profilePicture">
-          {{ getUserInitial() }}
+        <span *ngIf="!user?.profilePicture">
+          {{ (user?.username || '').charAt(0).toUpperCase() }}
         </span>
       </div>
       <div class="ml-3 text-left">
-        <p class="text-sm font-medium text-gray-900">{{ user()?.username }}</p>
+        <p class="text-sm font-medium text-gray-900">{{ user?.username }}</p>
         <p class="text-xs text-gray-500">You</p>
       </div>
     </button>
@@ -32,11 +33,12 @@
     <!-- Logout Button -->
     <div class="flex items-center">
       <button
-        (click)="onLogout()"
+        (click)="logout()"
+        type="button"
         class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200"
       >
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         </svg>
         Logout
       </button>
@@ -44,16 +46,9 @@
   </div>
 
   <!-- Profile Modal -->
-  <div *ngIf="showProfileModal()" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-      <h2 class="text-xl font-bold mb-4">Profile</h2>
-      <p class="text-gray-600 mb-4">Profile modal content will be implemented later</p>
-      <button
-        (click)="onCloseProfileModal()"
-        class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-      >
-        Close
-      </button>
-    </div>
-  </div>
+  <app-profile-modal
+    *ngIf="showProfileModal"
+    [isOpen]="showProfileModal"
+    (close)="closeProfileModal()"
+  ></app-profile-modal>
 </nav>
