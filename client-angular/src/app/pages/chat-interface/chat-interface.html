@@ -2,12 +2,15 @@
   <!-- Left Sidebar -->
   <app-left-sidebar
     [selectedUser]="selectedUser"
+    [selectedGroup]="selectedGroup"
     [conversations]="conversations"
     [allUsers]="allUsers"
     [onlineUsers]="onlineUsers"
     (userSelect)="onUserSelect($event)"
+    (groupSelect)="onGroupSelect($event)"
     (conversationsChange)="onConversationsChange($event)"
     (allUsersChange)="onAllUsersChange($event)"
+    (groupsChange)="onGroupsChange($event)"
   ></app-left-sidebar>
 
   <!-- Main Chat Area -->
@@ -82,7 +85,28 @@
     <ng-container *ngIf="selectedGroup">
       <!-- Group Header (fixed at top) -->
       <div class="flex-none px-6 py-4 border-b border-gray-200 bg-white">
-        <h3 class="text-lg font-semibold text-gray-900">{{ selectedGroup.name }}</h3>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <img
+              *ngIf="selectedGroup.icon"
+              [src]="selectedGroup.icon"
+              [alt]="selectedGroup.name"
+              class="w-10 h-10 rounded-full object-cover mr-3"
+            />
+            <div
+              *ngIf="!selectedGroup.icon"
+              class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-semibold mr-3"
+            >
+              {{ selectedGroup.name.charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">{{ selectedGroup.name }}</h2>
+              <p class="text-sm text-gray-500">
+                {{ selectedGroup.members.length }} members
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Messages (scrollable middle section) -->

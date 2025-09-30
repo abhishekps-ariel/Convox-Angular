@@ -44,7 +44,10 @@ export class MessageArea implements AfterViewChecked, OnChanges {
     try {
       if (this.messagesContainer) {
         const container = this.messagesContainer.nativeElement;
-        container.scrollTop = container.scrollHeight;
+        // Scroll to bottom instantly
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
       }
     } catch (err) {
       console.error('Scroll error:', err);

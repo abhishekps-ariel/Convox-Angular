@@ -88,6 +88,18 @@ export class ChatInterface implements OnInit, OnDestroy {
     try {
       const fetchedMessages = await this.apiService.fetchMessages(this.token, this.selectedUser.id);
       this.messages = fetchedMessages;
+      
+      // Mark messages as read via socket
+      if (this.socketService) {
+        setTimeout(() => {
+          if (this.selectedUser) {
+            // Emit mark as read event
+            (this.socketService as any).socket?.emit("markMessagesAsRead", { 
+              senderId: this.selectedUser.id 
+            });
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -110,6 +122,38 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.loadMessages();
   }
 
+  onGroupSelect(group: Group): void {
+    // If clicking same group, deselect
+    if (this.selectedGroup?._id === group._id) {
+      this.selectedGroup = null;
+      this.selectedUser = null;
+      this.messages = [];
+      this.socketService.setSelectedGroup(null);
+      return;
+    }
+
+    this.selectedGroup = group;
+    this.selectedUser = null;
+    this.messages = [];
+    this.socketService.setSelectedGroup(group);
+    this.loadGroupMessages();
+  }
+
+  async loadGroupMessages(): Promise<void> {
+    if (!this.token || !this.selectedGroup) return;
+
+    try {
+      const fetchedMessages = await this.apiService.fetchGroupMessages(this.token, this.selectedGroup._id, 1, 50);
+      this.messages = fetchedMessages;
+      
+      // Join group chat and mark as read
+      this.socketService.joinGroupChat(this.selectedGroup._id);
+      this.socketService.markGroupMessagesAsRead(this.selectedGroup._id);
+    } catch (error) {
+      console.error('Error loading group messages:', error);
+    }
+  }
+
   onConversationsChange(conversations: Conversation[]): void {
     this.conversations = conversations;
   }
@@ -118,12 +162,16 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.allUsers = users;
   }
 
+  onGroupsChange(groups: GroupWithUnread[]): void {
+    this.groups = groups;
+  }
+
   onMessageChange(message: string): void {
     this.newMessage = message;
   }
 
   async onSendMessage(): Promise<void> {
-    if (!this.newMessage.trim() || !this.selectedUser) return;
+    if (!this.newMessage.trim() || (!this.selectedUser && !this.selectedGroup)) return;
 
     const messageText = this.newMessage.trim();
     this.newMessage = '';
@@ -132,7 +180,8 @@ export class ChatInterface implements OnInit, OnDestroy {
     const tempMessage: Message = {
       _id: `temp-${Date.now()}`,
       sender: { _id: this.user?.id || '', username: this.user?.username || '' },
-      receiver: { _id: this.selectedUser.id, username: this.selectedUser.username },
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
       text: messageText,
       messageType: 'text',
       createdAt: new Date().toISOString(),
@@ -141,7 +190,11 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.messages = [...this.messages, tempMessage];
 
     // Send via socket
-    this.socketService.sendMessage(this.selectedUser.id, messageText, 'text');
+    if (this.selectedUser) {
+      this.socketService.sendMessage(this.selectedUser.id, messageText, 'text');
+    } else if (this.selectedGroup) {
+      this.socketService.sendGroupMessage(this.selectedGroup._id, messageText, 'text');
+    }
   }
 
   onImageSelect(event: Event): void {
@@ -175,21 +228,69 @@ export class ChatInterface implements OnInit, OnDestroy {
   }
 
   async onSendImage(): Promise<void> {
-    if (!this.selectedImage || !this.selectedUser) return;
+    if (!this.selectedImage || (!this.selectedUser && !this.selectedGroup)) return;
 
     this.isUploading = true;
-    // Implementation for sending image
-    // ... (socket emit logic)
+
+    // Optimistic message
+    const tempMessage: Message = {
+      _id: `temp-${Date.now()}`,
+      sender: { _id: this.user?.id || '', username: this.user?.username || '' },
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
+      text: '',
+      imageUrl: this.selectedImage,
+      messageType: 'image',
+      createdAt: new Date().toISOString(),
+    };
+
+    this.messages = [...this.messages, tempMessage];
+
+    // Send via socket
+    if (this.selectedUser) {
+      (this.socketService as any).socket?.emit("sendMessage", {
+        receiverId: this.selectedUser.id,
+        imageData: this.selectedImage,
+        messageType: 'image'
+      });
+    } else if (this.selectedGroup) {
+      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'image', this.selectedImage);
+    }
+
     this.selectedImage = null;
     this.isUploading = false;
   }
 
   async onSendVideo(): Promise<void> {
-    if (!this.selectedVideo || !this.selectedUser) return;
+    if (!this.selectedVideo || (!this.selectedUser && !this.selectedGroup)) return;
 
     this.isUploading = true;
-    // Implementation for sending video
-    // ... (socket emit logic)
+
+    // Optimistic message
+    const tempMessage: Message = {
+      _id: `temp-${Date.now()}`,
+      sender: { _id: this.user?.id || '', username: this.user?.username || '' },
+      receiver: this.selectedUser ? { _id: this.selectedUser.id, username: this.selectedUser.username } : undefined,
+      group: this.selectedGroup ? { _id: this.selectedGroup._id, name: this.selectedGroup.name } : undefined,
+      text: '',
+      videoUrl: this.selectedVideo,
+      messageType: 'video',
+      createdAt: new Date().toISOString(),
+    };
+
+    this.messages = [...this.messages, tempMessage];
+
+    // Send via socket
+    if (this.selectedUser) {
+      (this.socketService as any).socket?.emit("sendMessage", {
+        receiverId: this.selectedUser.id,
+        videoData: this.selectedVideo,
+        messageType: 'video'
+      });
+    } else if (this.selectedGroup) {
+      this.socketService.sendGroupMessage(this.selectedGroup._id, '', 'video', undefined, this.selectedVideo);
+    }
+
     this.selectedVideo = null;
     this.isUploading = false;
   }

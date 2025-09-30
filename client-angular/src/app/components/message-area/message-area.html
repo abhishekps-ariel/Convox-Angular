@@ -1,4 +1,4 @@
-<div class="px-6 py-4 h-full relative">
+<div #messagesContainer class="px-6 py-4 h-full relative">
   <div *ngFor="let message of messages; let i = index">
     <ng-container *ngIf="!isMessageDeleted(message)">
       
@@ -108,4 +108,7 @@
       </div>
     </ng-container>
   </div>
+  
+  <!-- Scroll anchor -->
+  <div #messagesEnd></div>
 </div>

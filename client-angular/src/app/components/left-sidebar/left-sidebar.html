@@ -73,15 +73,74 @@
     </div>
   </div>
 
-  <!-- Conversations List -->
-  <div class="flex-1 overflow-y-auto">
-    <app-conversation-list
-      [conversations]="conversations"
-      [selectedUser]="selectedUser"
-      [currentUserId]="user?.id || ''"
-      [isUserBlockedByMe]="isUserBlockedByMe.bind(this)"
-      [isUserOnline]="isUserOnline.bind(this)"
-      (userSelect)="handleUserSelect($event)"
-    ></app-conversation-list>
+  <!-- Tabs -->
+  <div class="px-6 py-2 border-b border-gray-200">
+    <div class="flex space-x-1 relative">
+      <!-- Highlight animation bar -->
+      <div
+        [class]="'absolute bottom-0 h-0.5 bg-blue-500 transition-all duration-300 ease-in-out ' +
+                 (activeTab === 'chats' ? 'left-0 w-1/2' : 'left-1/2 w-1/2')"
+      ></div>
+      
+      <button
+        (click)="setActiveTab('chats')"
+        [class]="'relative px-3 py-2 text-sm font-medium rounded-md transition-all duration-300 ease-in-out w-full ' +
+                 (activeTab === 'chats' ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700')"
+      >
+        Chats
+      </button>
+      <button
+        (click)="setActiveTab('groups')"
+        [class]="'relative px-3 py-2 text-sm font-medium rounded-md transition-all duration-300 ease-in-out w-full ' +
+                 (activeTab === 'groups' ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700')"
+      >
+        Groups
+      </button>
+    </div>
   </div>
+
+  <!-- Groups Tab -->
+  <div *ngIf="activeTab === 'groups'" class="flex-1 overflow-y-auto">
+    <div class="px-6 py-3 border-b border-gray-200">
+      <button
+        (click)="onCreateGroup()"
+        type="button"
+        class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+      >
+        Create New Group
+      </button>
+    </div>
+    <div class="pl-1">
+      <app-group-list
+        [groups]="filteredGroups"
+        [selectedGroup]="selectedGroup"
+        [currentUserId]="user?.id || ''"
+        (groupSelect)="handleGroupSelect($event)"
+      ></app-group-list>
+    </div>
+  </div>
+
+  <!-- Conversations Tab -->
+  <div *ngIf="activeTab === 'chats'" class="flex-1 overflow-y-auto">
+    <div class="pl-1">
+      <app-conversation-list
+        [conversations]="filteredConversations"
+        [selectedUser]="selectedUser"
+        [currentUserId]="user?.id || ''"
+        [isUserBlockedByMe]="isUserBlockedByMe.bind(this)"
+        [isUserOnline]="isUserOnline.bind(this)"
+        (userSelect)="handleUserSelect($event)"
+      ></app-conversation-list>
+    </div>
+  </div>
+
+  <!-- Create Group Modal -->
+  <app-create-group-modal
+    *ngIf="showCreateGroupModal"
+    [isOpen]="showCreateGroupModal"
+    [users]="allUsers"
+    [token]="token || ''"
+    (close)="onCloseCreateGroupModal()"
+    (groupCreated)="onGroupCreated()"
+  ></app-create-group-modal>
 </div>
