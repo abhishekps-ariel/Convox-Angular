@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
@@ -10,16 +10,17 @@ import { InputMessage } from '../../components/input-message/input-message';
 import { LeftSidebar } from '../../components/left-sidebar/left-sidebar';
 import { GroupMenu } from '../../components/group-menu/group-menu';
 import { AddMembersModal } from '../../components/add-members-modal/add-members-modal';
-import { ProfileInfo } from '../../components/profile-info/profile-info';
 
 @Component({
   selector: 'app-chat-interface',
   standalone: true,
-  imports: [CommonModule, ChatHeader, MessageArea, InputMessage, LeftSidebar, GroupMenu, AddMembersModal, ProfileInfo],
+  imports: [CommonModule, ChatHeader, MessageArea, InputMessage, LeftSidebar, GroupMenu, AddMembersModal],
   templateUrl: './chat-interface.html',
   styleUrls: ['./chat-interface.css']
 })
-export class ChatInterface implements OnInit, OnDestroy {
+export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild(LeftSidebar) leftSidebar!: LeftSidebar;
+
   user: User | null = null;
   token: string | null = null;
   conversations: Conversation[] = [];
@@ -55,6 +56,27 @@ export class ChatInterface implements OnInit, OnDestroy {
       this.token = token;
       if (token && this.user) {
         this.initializeSocket();
+      }
+    });
+  }
+
+  ngAfterViewInit(): void {
+    // Set up socket callbacks after view is initialized
+    this.socketService.setCallbacks({
+      onMessagesRead: (userId: string) => {
+        if (this.leftSidebar) {
+          this.leftSidebar.markConversationAsRead(userId);
+        }
+      },
+      updateConversation: (message: any, shouldIncrementUnread?: boolean) => {
+        if (this.leftSidebar && message.receiver) {
+          this.leftSidebar.updateConversationWithNewMessage(message, shouldIncrementUnread);
+        }
+      },
+      onGroupMessageReceived: (message: any, shouldIncrementUnread?: boolean) => {
+        if (this.leftSidebar && message.group) {
+          this.leftSidebar.updateGroupWithNewMessage(message, shouldIncrementUnread);
+        }
       }
     });
   }
@@ -125,10 +147,16 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.socketService.setSelectedUser(user);
       this.loadMessages();
     
+    // Mark as read
+    if (this.leftSidebar) {
+      this.leftSidebar.markConversationAsRead(user.id);
+    }
+    
     // Force scroll to bottom when opening conversation
+    this.forceScrollToBottom = true;
     setTimeout(() => {
-      this.forceScrollToBottom = true;
-    }, 100);
+      this.forceScrollToBottom = false;
+    }, 200);
   }
 
   onGroupSelect(group: Group): void {
@@ -147,10 +175,16 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.socketService.setSelectedGroup(group);
     this.loadGroupMessages();
     
+    // Mark group as read
+    if (this.leftSidebar) {
+      this.leftSidebar.markGroupAsRead(group._id);
+    }
+    
     // Force scroll to bottom when opening group
+    this.forceScrollToBottom = true;
     setTimeout(() => {
-      this.forceScrollToBottom = true;
-    }, 100);
+      this.forceScrollToBottom = false;
+    }, 200);
   }
 
   async loadGroupMessages(): Promise<void> {
@@ -185,27 +219,216 @@ export class ChatInterface implements OnInit, OnDestroy {
     console.log('Leave group:', groupId);
   }
 
+  showAddMembersModal = false;
+
   onAddMembers(groupId: string): void {
-    // Implementation for adding members
-    console.log('Add members to group:', groupId);
+    this.showAddMembersModal = true;
+  }
+
+  onAddMembersModalClose(): void {
+    this.showAddMembersModal = false;
+  }
+
+  onMembersAdded(): void {
+    this.showAddMembersModal = false;
+    // Refresh the group data
+    if (this.selectedGroup && this.leftSidebar) {
+      this.leftSidebar.loadGroups();
+    }
+    // Reload messages to see new members in group
+    if (this.selectedGroup) {
+      this.loadGroupMessages();
+    }
   }
 
   onEditMessage(event: { messageId: string; newText: string }): void {
-    // Implementation for editing message
-    console.log('Edit message:', event);
-    // TODO: Implement message editing via socket
+    if (!event.newText.trim()) return;
+
+    // Find the edited message to check if it's the last message
+    const editedMessage = this.messages.find(msg => msg._id === event.messageId);
+    
+    // Optimistically update local message
+    this.messages = this.messages.map(msg => 
+      msg._id === event.messageId 
+        ? { ...msg, text: event.newText, isEdited: true, editedAt: new Date().toISOString() }
+        : msg
+    );
+
+    // Update conversation/group list if this is the last message
+    if (editedMessage && this.leftSidebar) {
+      if (this.selectedUser && editedMessage.receiver) {
+        // Update conversation list for direct messages
+        const updatedConversations = this.conversations.map(conv => {
+          if (conv.lastMessage && conv.lastMessage._id === event.messageId) {
+            return {
+              ...conv,
+              lastMessage: {
+                ...conv.lastMessage,
+                text: event.newText,
+                isEdited: true,
+                editedAt: new Date().toISOString()
+              }
+            };
+          }
+          return conv;
+        });
+        this.onConversationsChange(updatedConversations);
+      } else if (this.selectedGroup && editedMessage.group) {
+        // Update group list for group messages
+        const updatedMessage = {
+          ...editedMessage,
+          text: event.newText,
+          isEdited: true,
+          editedAt: new Date().toISOString()
+        };
+        this.leftSidebar.updateGroupWithNewMessage(updatedMessage, false);
+      }
+    }
+
+    // Emit socket event for real-time editing
+    (this.socketService as any).socket?.emit('editMessage', {
+      messageId: event.messageId,
+      text: event.newText.trim()
+    });
   }
 
   onDeleteForMe(messageId: string): void {
-    // Implementation for deleting message for me
-    console.log('Delete for me:', messageId);
-    // TODO: Implement delete for me via socket
+    const deletedMessage = this.messages.find(msg => msg._id === messageId);
+    
+    // Update local message state
+    const updatedMessages = this.messages.map(msg => {
+      if (msg._id === messageId) {
+        if (msg.sender._id === this.user?.id) {
+          return { ...msg, deletedForSender: true, deletedAt: new Date().toISOString() };
+        } else {
+          if (msg.group) {
+            const deletedForUsers = msg.deletedForUsers || [];
+            if (!deletedForUsers.includes(this.user?.id || '')) {
+              return { 
+                ...msg, 
+                deletedForUsers: [...deletedForUsers, this.user?.id || ''],
+                deletedAt: new Date().toISOString() 
+              };
+            }
+          } else {
+            return { ...msg, deletedForReceiver: true, deletedAt: new Date().toISOString() };
+          }
+        }
+      }
+      return msg;
+    });
+    this.messages = updatedMessages;
+
+    // Update conversation/group list if this is the last message
+    if (deletedMessage && this.leftSidebar) {
+      if (this.selectedUser && deletedMessage.receiver) {
+        // For direct messages - find previous non-deleted message
+        const updatedConversations = this.conversations.map(conv => {
+          if (conv.lastMessage && conv.lastMessage._id === messageId) {
+            // Find previous non-deleted message
+            const previousMessages = updatedMessages.filter(msg => 
+              msg._id !== messageId && 
+              !this.isMessageDeletedForUser(msg, this.user?.id || '') &&
+              ((msg.sender._id === deletedMessage.sender._id && msg.receiver?._id === deletedMessage.receiver?._id) ||
+               (msg.sender._id === deletedMessage.receiver?._id && msg.receiver?._id === deletedMessage.sender._id))
+            );
+            
+            previousMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const newLastMessage = previousMessages.length > 0 ? previousMessages[0] : null;
+            
+            return {
+              ...conv,
+              lastMessage: newLastMessage
+            };
+          }
+          return conv;
+        });
+        this.onConversationsChange(updatedConversations);
+      } else if (this.selectedGroup && deletedMessage.group) {
+        // For group messages - find previous non-deleted message
+        const groupId = typeof deletedMessage.group === 'string' ? deletedMessage.group : deletedMessage.group._id;
+        const groupMessages = updatedMessages
+          .filter(msg => {
+            const msgGroupId = typeof msg.group === 'string' ? msg.group : msg.group?._id;
+            return msgGroupId === groupId;
+          })
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        const previousMessage = groupMessages.find(msg => 
+          msg._id !== messageId && 
+          !this.isMessageDeletedForUser(msg, this.user?.id || '')
+        );
+        
+        if (previousMessage) {
+          this.leftSidebar.updateGroupWithNewMessage(previousMessage, false);
+        }
+      }
+    }
+
+    // Emit socket event
+    (this.socketService as any).socket?.emit('deleteMessageForMe', { messageId });
   }
 
   onDeleteForEveryone(messageId: string): void {
-    // Implementation for deleting message for everyone
-    console.log('Delete for everyone:', messageId);
-    // TODO: Implement delete for everyone via socket
+    const deletedMessage = this.messages.find(msg => msg._id === messageId);
+    
+    // Update local message state
+    this.messages = this.messages.map(msg =>
+      msg._id === messageId
+        ? { ...msg, deletedForEveryone: true, deletedAt: new Date().toISOString() }
+        : msg
+    );
+
+    // Update conversation/group list if this is the last message
+    if (deletedMessage && this.leftSidebar) {
+      if (this.selectedUser && deletedMessage.receiver) {
+        // For direct messages - update to show deleted message
+        const updatedConversations = this.conversations.map(conv => {
+          if (conv.lastMessage && conv.lastMessage._id === messageId) {
+            return {
+              ...conv,
+              lastMessage: {
+                ...conv.lastMessage,
+                deletedForEveryone: true,
+                deletedAt: new Date().toISOString()
+              }
+            };
+          }
+          return conv;
+        });
+        this.onConversationsChange(updatedConversations);
+      } else if (this.selectedGroup && deletedMessage.group) {
+        // For group messages - update to show deleted message
+        const updatedMessage = {
+          ...deletedMessage,
+          deletedForEveryone: true,
+          deletedAt: new Date().toISOString()
+        };
+        this.leftSidebar.updateGroupWithNewMessage(updatedMessage, false);
+      }
+    }
+
+    // Emit socket event
+    (this.socketService as any).socket?.emit('deleteMessageForEveryone', { messageId });
+  }
+
+  // Helper function to check if message is deleted for user
+  private isMessageDeletedForUser(message: Message, userId: string): boolean {
+    if (!userId) return false;
+    
+    if (message.group) {
+      if (message.sender._id === userId) {
+        return message.deletedForSender || false;
+      } else {
+        return message.deletedForUsers && message.deletedForUsers.includes(userId) || false;
+      }
+    }
+    
+    if (message.sender._id === userId) {
+      return message.deletedForSender || false;
+    } else {
+      return message.deletedForReceiver || false;
+    }
   }
 
   onBlockUser(): void {
@@ -238,9 +461,10 @@ export class ChatInterface implements OnInit, OnDestroy {
     this.messages = [...this.messages, tempMessage];
 
     // Force scroll to bottom after sending message
+    this.forceScrollToBottom = true;
     setTimeout(() => {
-      this.forceScrollToBottom = true;
-    }, 50);
+      this.forceScrollToBottom = false;
+    }, 200);
 
     // Send via socket
     if (this.selectedUser) {

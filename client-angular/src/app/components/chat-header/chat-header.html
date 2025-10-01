@@ -3,13 +3,13 @@
     <div class="relative">
       <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold overflow-hidden">
         <img
-          *ngIf="selectedUser?.profilePicture"
+          *ngIf="selectedUser.profilePicture"
           [src]="selectedUser.profilePicture"
           [alt]="selectedUser.username"
           class="w-full h-full object-cover"
         />
-        <span *ngIf="!selectedUser?.profilePicture">
-          {{ (selectedUser?.username || '').charAt(0).toUpperCase() }}
+        <span *ngIf="!selectedUser.profilePicture">
+          {{ selectedUser.username.charAt(0).toUpperCase() }}
         </span>
       </div>
       <span

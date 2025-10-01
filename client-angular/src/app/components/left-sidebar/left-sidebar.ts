@@ -161,4 +161,92 @@ export class LeftSidebar implements OnInit, OnChanges {
     this.showCreateGroupModal = false;
     this.loadGroups(); // Refresh groups list
   }
+
+  // Update conversation with new message (called from socket)
+  updateConversationWithNewMessage(message: any, shouldIncrementUnread: boolean = true): void {
+    const otherUserId = message.sender._id === this.user?.id 
+      ? message.receiver._id 
+      : message.sender._id;
+    
+    const existingConvIndex = this.conversations.findIndex(conv => conv._id === otherUserId);
+
+    if (existingConvIndex >= 0) {
+      const updatedConversations = [...this.conversations];
+      const existingConv = updatedConversations[existingConvIndex];
+
+      const newUnreadCount = shouldIncrementUnread && message.receiver._id === this.user?.id
+        ? existingConv.unreadCount + 1
+        : existingConv.unreadCount;
+
+      updatedConversations[existingConvIndex] = {
+        ...existingConv,
+        lastMessage: message,
+        unreadCount: newUnreadCount,
+      };
+
+      // Move to top
+      const [updatedConv] = updatedConversations.splice(existingConvIndex, 1);
+      const newConversations = [updatedConv, ...updatedConversations];
+      this.conversationsChange.emit(newConversations);
+    } else {
+      // Create new conversation
+      const otherUser = message.sender._id === this.user?.id ? message.receiver : message.sender;
+      const newUnreadCount = shouldIncrementUnread && message.receiver._id === this.user?.id ? 1 : 0;
+
+      const newConversation: Conversation = {
+        _id: otherUserId,
+        username: otherUser.username,
+        email: otherUser.email || '',
+        lastMessage: message,
+        unreadCount: newUnreadCount,
+      };
+
+      const newConversations = [newConversation, ...this.conversations];
+      this.conversationsChange.emit(newConversations);
+    }
+  }
+
+  // Update group with new message (called from socket)
+  updateGroupWithNewMessage(message: any, shouldIncrementUnread: boolean = true): void {
+    const groupId = typeof message.group === 'string' ? message.group : message.group?._id;
+    if (!groupId) return;
+
+    const existingGroupIndex = this.groups.findIndex(g => g._id === groupId);
+
+    if (existingGroupIndex >= 0) {
+      const updatedGroups = [...this.groups];
+      const existingGroup = updatedGroups[existingGroupIndex];
+
+      const newUnreadCount = shouldIncrementUnread && message.sender._id !== this.user?.id
+        ? existingGroup.unreadCount + 1
+        : existingGroup.unreadCount;
+
+      updatedGroups[existingGroupIndex] = {
+        ...existingGroup,
+        lastMessage: message,
+        unreadCount: newUnreadCount,
+      };
+
+      // Move to top
+      const [updatedGroup] = updatedGroups.splice(existingGroupIndex, 1);
+      this.groups = [updatedGroup, ...updatedGroups];
+      this.groupsChange.emit(this.groups);
+    }
+  }
+
+  // Mark conversation as read
+  markConversationAsRead(userId: string): void {
+    const updatedConversations = this.conversations.map(conv =>
+      conv._id === userId ? { ...conv, unreadCount: 0 } : conv
+    );
+    this.conversationsChange.emit(updatedConversations);
+  }
+
+  // Mark group as read
+  markGroupAsRead(groupId: string): void {
+    this.groups = this.groups.map(group =>
+      group._id === groupId ? { ...group, unreadCount: 0 } : group
+    );
+    this.groupsChange.emit(this.groups);
+  }
 }

@@ -154,3 +154,14 @@
     </ng-container>
   </div>
 </div>
+
+<!-- Add Members Modal -->
+<app-add-members-modal
+  *ngIf="showAddMembersModal && selectedGroup"
+  [isOpen]="showAddMembersModal"
+  [group]="selectedGroup"
+  [currentUserId]="user?.id || ''"
+  [token]="token || ''"
+  (close)="onAddMembersModalClose()"
+  (membersAdded)="onMembersAdded()"
+></app-add-members-modal>
