@@ -182,7 +182,7 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
         }
       },
       onMemberRemoved: (data: any) => {
-        // Handle member removal - add system message and update group list - EXACT React pattern
+        // Handle member removal - add system message and update group list 
         this.messages = [...this.messages, data.message];
         
         if (this.leftSidebar) {
