@@ -1,11 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 
 @Component({
   selector: 'app-input-message',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PickerComponent],
   templateUrl: './input-message.html',
   styleUrls: ['./input-message.css']
 })
@@ -27,8 +28,27 @@ export class InputMessage {
 
   showEmojiPicker = false;
 
+  // Close emoji picker when clicking outside - EXACT React pattern
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (this.showEmojiPicker && !target.closest('.emoji-picker-wrapper')) {
+      this.showEmojiPicker = false;
+    }
+  }
+
   onMessageChange(value: string): void {
     this.messageChange.emit(value);
+  }
+
+  onEmojiSelect(event: any): void {
+    // ngx-emoji-mart uses different structure
+    console.log('Emoji event:', event);
+    const emoji = event?.emoji?.native || event?.native || event;
+    if (typeof emoji === 'string') {
+      this.messageChange.emit(this.newMessage + emoji);
+      this.showEmojiPicker = false;
+    }
   }
 
   onSubmit(event: Event): void {

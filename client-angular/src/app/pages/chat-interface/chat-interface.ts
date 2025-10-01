@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
@@ -14,7 +14,15 @@ import { AddMembersModal } from '../../components/add-members-modal/add-members-
 @Component({
   selector: 'app-chat-interface',
   standalone: true,
-  imports: [CommonModule, ChatHeader, MessageArea, InputMessage, LeftSidebar, GroupMenu, AddMembersModal],
+  imports: [
+    CommonModule, 
+    ChatHeader, 
+    MessageArea, 
+    InputMessage, 
+    LeftSidebar, 
+    GroupMenu, 
+    AddMembersModal
+  ],
   templateUrl: './chat-interface.html',
   styleUrls: ['./chat-interface.css']
 })
@@ -37,6 +45,10 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
   selectedVideo: string | null = null;
   isUploading = false;
   forceScrollToBottom = false;
+  
+  // Image/Video viewer state
+  viewingImage: string | null = null;
+  viewingVideo: string | null = null;
 
   constructor(
     private authService: AuthService,
@@ -64,9 +76,17 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
     // Set up socket callbacks after view is initialized - EXACT React pattern
     this.socketService.setCallbacks({
       onMessagesRead: (userId: string) => {
+        // Update conversations to reflect read status
         if (this.leftSidebar) {
           this.leftSidebar.markConversationAsRead(userId);
         }
+        
+        // Update local messages to show read status - EXACT React pattern
+        this.messages = this.messages.map(message => 
+          message.sender._id === userId && !message.isRead
+            ? { ...message, isRead: true }
+            : message
+        );
       },
       updateConversation: (message: any, shouldIncrementUnread?: boolean) => {
         if (this.leftSidebar && message.receiver) {
@@ -153,11 +173,55 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
         if (this.leftSidebar && message.group && message.deletedForEveryone) {
           this.leftSidebar.updateGroupWithNewMessage(message, false);
         }
+      },
+      onGroupCreated: (group: any) => {
+        // Handle group creation - EXACT React pattern
+        console.log('Group created:', group);
+        if (this.leftSidebar) {
+          this.leftSidebar.loadGroups(); // Refresh groups list
+        }
+      },
+      onMemberRemoved: (data: any) => {
+        // Handle member removal - add system message and update group list - EXACT React pattern
+        this.messages = [...this.messages, data.message];
+        
+        if (this.leftSidebar) {
+          this.leftSidebar.updateGroupWithNewMessage(data.message, false);
+          
+          // Refresh group data if provided
+          if (data.updatedGroup) {
+            this.leftSidebar.loadGroups();
+          }
+        }
+      },
+      onMemberLeft: (data: any) => {
+        // Handle member left - add system message and update group list - EXACT React pattern
+        this.messages = [...this.messages, data.message];
+        
+        if (this.leftSidebar) {
+          this.leftSidebar.updateGroupWithNewMessage(data.message, false);
+        }
       }
     });
   }
 
+  // Handle ESC key to close image/video viewer - EXACT React pattern
+  @HostListener('document:keydown', ['$event'])
+  handleKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      if (this.viewingImage) {
+        this.closeImageViewer();
+      } else if (this.viewingVideo) {
+        this.closeVideoViewer();
+      }
+    }
+  }
+
   ngOnDestroy(): void {
+    // Leave chat room before disconnecting - EXACT React pattern
+    if (this.selectedUser && (this.socketService as any).socket?.connected) {
+      (this.socketService as any).socket.emit("leaveChat", this.selectedUser.id);
+    }
     this.socketService.disconnect();
   }
 
@@ -191,23 +255,21 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
       const fetchedMessages = await this.apiService.fetchMessages(this.token, this.selectedUser.id);
       this.messages = fetchedMessages;
       
-      // Mark messages as read via socket
-      if (this.socketService) {
-        setTimeout(() => {
-          if (this.selectedUser) {
-            // Emit mark as read event
+      // Mark messages as read via socket - EXACT React pattern
             (this.socketService as any).socket?.emit("markMessagesAsRead", { 
               senderId: this.selectedUser.id 
             });
-          }
-        }, 500);
-      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }
   }
 
   onUserSelect(user: User): void {
+    // Leave previous chat room if any - EXACT React pattern
+    if (this.selectedUser && (this.socketService as any).socket?.connected) {
+      (this.socketService as any).socket.emit("leaveChat", this.selectedUser.id);
+    }
+    
     // If clicking same user, deselect
     if (this.selectedUser?.id === user.id) {
       this.selectedUser = null;
@@ -222,6 +284,11 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
     this.messages = [];
     this.socketService.setSelectedUser(user);
       this.loadMessages();
+    
+    // Join the chat room - EXACT React pattern
+    if ((this.socketService as any).socket?.connected) {
+      (this.socketService as any).socket.emit("joinChat", user.id);
+    }
     
     // Mark as read
     if (this.leftSidebar) {
@@ -662,5 +729,36 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
 
   onRemoveSelectedVideo(): void {
     this.selectedVideo = null;
+  }
+
+  // Image/Video viewer methods - EXACT React pattern
+  openImageViewer(imageUrl: string): void {
+    this.viewingImage = imageUrl;
+  }
+
+  closeImageViewer(): void {
+    this.viewingImage = null;
+  }
+
+  openVideoViewer(videoUrl: string): void {
+    this.viewingVideo = videoUrl;
+  }
+
+  closeVideoViewer(): void {
+    this.viewingVideo = null;
+  }
+
+  downloadImage(imageUrl: string): void {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `image-${Date.now()}.png`;
+    link.click();
+  }
+
+  downloadVideo(videoUrl: string): void {
+    const link = document.createElement('a');
+    link.href = videoUrl;
+    link.download = `video-${Date.now()}.mp4`;
+    link.click();
   }
 }

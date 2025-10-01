@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
 import { User } from '../../types/chat-types';
@@ -8,7 +9,7 @@ import { User } from '../../types/chat-types';
 @Component({
   selector: 'app-profile-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ImageCropperComponent],
   templateUrl: './profile-modal.html',
   styleUrls: ['./profile-modal.css']
 })
@@ -22,6 +23,11 @@ export class ProfileModal implements OnInit {
   profilePicture = '';
   isLoading = false;
   previewUrl: string | null = null;
+  
+  // Image cropper state - EXACT React pattern
+  showCropModal = false;
+  imageChangedEvent: any = null;
+  croppedImage: string = '';
 
   constructor(
     private authService: AuthService,
@@ -41,19 +47,28 @@ export class ProfileModal implements OnInit {
   }
 
   onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        this.profilePicture = base64;
-        this.previewUrl = base64;
-      };
-      
-      reader.readAsDataURL(file);
+    // Show crop modal - EXACT React pattern
+    this.imageChangedEvent = event;
+    this.showCropModal = true;
+  }
+
+  imageCropped(event: ImageCroppedEvent): void {
+    // Use base64 for proper storage
+    this.croppedImage = event.base64 || '';
+  }
+
+  handleCropComplete(): void {
+    if (this.croppedImage) {
+      this.profilePicture = this.croppedImage;
+      this.previewUrl = this.croppedImage;
     }
+    this.handleCropCancel();
+  }
+
+  handleCropCancel(): void {
+    this.showCropModal = false;
+    this.imageChangedEvent = null;
+    this.croppedImage = '';
   }
 
   async handleSave(): Promise<void> {

@@ -1,13 +1,14 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 import { ApiService } from '../../services/api.service';
 import { User } from '../../types/chat-types';
 
 @Component({
   selector: 'app-create-group-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ImageCropperComponent],
   templateUrl: './create-group-modal.html',
   styleUrls: ['./create-group-modal.css']
 })
@@ -25,6 +26,11 @@ export class CreateGroupModal {
   isLoading = false;
   error = '';
   groupIcon = '';
+  
+  // Image cropper state - EXACT React pattern
+  showCropModal = false;
+  imageChangedEvent: any = null;
+  croppedImage: string = '';
 
   constructor(private apiService: ApiService) {}
 
@@ -79,15 +85,27 @@ export class CreateGroupModal {
   }
 
   onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.groupIcon = reader.result as string;
-      };
-      reader.readAsDataURL(file);
+    // Show crop modal - EXACT React pattern
+    this.imageChangedEvent = event;
+    this.showCropModal = true;
+  }
+
+  imageCropped(event: ImageCroppedEvent): void {
+    // Use base64 for proper storage - NOT objectUrl
+    this.croppedImage = event.base64 || '';
+  }
+
+  handleCropComplete(): void {
+    if (this.croppedImage) {
+      this.groupIcon = this.croppedImage;
     }
+    this.handleCropCancel();
+  }
+
+  handleCropCancel(): void {
+    this.showCropModal = false;
+    this.imageChangedEvent = null;
+    this.croppedImage = '';
   }
 
   removeIcon(): void {

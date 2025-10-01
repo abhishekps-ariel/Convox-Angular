@@ -67,6 +67,25 @@
   (ngSubmit)="onSubmit($event)"
   class="px-6 py-4 bg-white border-t border-gray-200 flex items-center space-x-3"
 >
+  <!-- Emoji Button - EXACT React pattern -->
+  <div class="relative emoji-picker-wrapper">
+    <button
+      type="button"
+      (click)="toggleEmojiPicker(); $event.stopPropagation()"
+      [disabled]="disabled"
+      class="text-gray-600 text-2xl hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      😊
+    </button>
+    <div *ngIf="showEmojiPicker" class="absolute bottom-12 left-0 z-50">
+      <emoji-mart
+        (emojiClick)="onEmojiSelect($event)"
+        [darkMode]="false"
+        [showPreview]="false"
+      ></emoji-mart>
+    </div>
+  </div>
+  
   <div class="flex-1 relative">
     <input
       type="text"

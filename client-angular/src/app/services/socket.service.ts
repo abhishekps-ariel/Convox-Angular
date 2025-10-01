@@ -26,6 +26,8 @@ export class SocketService {
   private onGroupMessageEditedCallback?: (message: Message) => void;
   private onGroupMessageDeletedCallback?: (message: Message) => void;
   private onGroupCreatedCallback?: (group: Group) => void;
+  private onMemberRemovedCallback?: (data: any) => void;
+  private onMemberLeftCallback?: (data: any) => void;
   
   constructor() {}
 
@@ -247,6 +249,11 @@ export class SocketService {
       if (data.updatedGroup && this.onGroupCreatedCallback) {
         this.onGroupCreatedCallback(data.updatedGroup);
       }
+      
+      // Call member removed callback for additional handling
+      if (this.onMemberRemovedCallback) {
+        this.onMemberRemovedCallback(data);
+      }
     });
 
     this.socket.on('groupMemberRemoved', (data: { 
@@ -261,6 +268,11 @@ export class SocketService {
       if (this.onGroupMessageReceivedCallback) {
         this.onGroupMessageReceivedCallback(data.message, false);
       }
+      
+      // Call member removed callback for additional handling
+      if (this.onMemberRemovedCallback) {
+        this.onMemberRemovedCallback(data);
+      }
     });
 
     this.socket.on('groupMemberLeft', (data: { 
@@ -273,6 +285,11 @@ export class SocketService {
       
       if (this.onGroupMessageReceivedCallback) {
         this.onGroupMessageReceivedCallback(data.message, false);
+      }
+      
+      // Call member left callback for additional handling
+      if (this.onMemberLeftCallback) {
+        this.onMemberLeftCallback(data);
       }
     });
   }
@@ -304,6 +321,8 @@ export class SocketService {
     onGroupMessageEdited?: (message: Message) => void;
     onGroupMessageDeleted?: (message: Message) => void;
     onGroupCreated?: (group: Group) => void;
+    onMemberRemoved?: (data: any) => void;
+    onMemberLeft?: (data: any) => void;
   }): void {
     this.onMessagesReadCallback = callbacks.onMessagesRead;
     this.updateConversationCallback = callbacks.updateConversation;
@@ -313,6 +332,8 @@ export class SocketService {
     this.onGroupMessageEditedCallback = callbacks.onGroupMessageEdited;
     this.onGroupMessageDeletedCallback = callbacks.onGroupMessageDeleted;
     this.onGroupCreatedCallback = callbacks.onGroupCreated;
+    this.onMemberRemovedCallback = callbacks.onMemberRemoved;
+    this.onMemberLeftCallback = callbacks.onMemberLeft;
   }
 
   setSelectedUser(user: User | null): void {

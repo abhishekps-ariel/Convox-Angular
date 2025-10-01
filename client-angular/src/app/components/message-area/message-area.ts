@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked, OnChanges, SimpleChanges, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, OnChanges, SimpleChanges, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Message, User } from '../../types/chat-types';
@@ -10,9 +10,10 @@ import { formatMessageDate, shouldShowDateSeparator } from '../../utils/date-uti
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './message-area.html',
-  styleUrls: ['./message-area.css']
+  styleUrls: ['./message-area.css'],
+  host: {}
 })
-export class MessageArea implements AfterViewChecked, OnChanges {
+export class MessageArea implements OnChanges {
   @Input() messages: Message[] = [];
   @Input() isGroupChat = false;
   @Input() forceScrollToBottom = false;
@@ -20,11 +21,12 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   @Output() editMessage = new EventEmitter<{ messageId: string; newText: string }>();
   @Output() deleteForMe = new EventEmitter<string>();
   @Output() deleteForEveryone = new EventEmitter<string>();
+  @Output() openImageViewer = new EventEmitter<string>();
+  @Output() openVideoViewer = new EventEmitter<string>();
 
-  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
+  @ViewChild('messagesEnd') private messagesEnd!: ElementRef;
 
   user: User | null = null;
-  private shouldScroll = true;
   showDeleteMenu: string | null = null;
   
   // Edit message state
@@ -35,7 +37,10 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   // Expose Math for template
   Math = Math;
 
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private elementRef: ElementRef
+  ) {
     this.authService.user$.subscribe(user => {
       this.user = user;
     });
@@ -51,50 +56,22 @@ export class MessageArea implements AfterViewChecked, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['messages']) {
-      // Always scroll on first load or when messages change significantly
-      if (!changes['messages'].previousValue || changes['messages'].previousValue.length === 0) {
-        // First load - always scroll to bottom
-        this.shouldScroll = true;
-      } else if (this.messagesContainer) {
-        // Subsequent changes - check if user is near bottom
-        const container = this.messagesContainer.nativeElement;
-        const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
-        this.shouldScroll = isNearBottom;
-      } else {
-        this.shouldScroll = true;
-      }
-    }
+    // Basic scroll - only when opening a conversation
     if (changes['forceScrollToBottom'] && this.forceScrollToBottom) {
-      this.shouldScroll = true;
-    }
-  }
-
-  ngAfterViewChecked(): void {
-    // Force scroll to bottom when explicitly requested (takes priority)
-    if (this.forceScrollToBottom) {
-      this.scrollToBottom();
-      return;
-    }
-    
-    // Otherwise check if we should scroll based on user position
-    if (this.shouldScroll) {
-      this.scrollToBottom();
-      this.shouldScroll = false;
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, 100);
     }
   }
 
   scrollToBottom(): void {
     try {
-      if (this.messagesContainer) {
-        const container = this.messagesContainer.nativeElement;
-        // Scroll instantly to bottom
-        setTimeout(() => {
-          container.scrollTop = container.scrollHeight;
-        }, 0);
+      const hostElement = this.elementRef.nativeElement as HTMLElement;
+      if (hostElement) {
+        hostElement.scrollTop = hostElement.scrollHeight;
       }
     } catch (err) {
-      console.error('Scroll error:', err);
+      // Silently fail
     }
   }
 

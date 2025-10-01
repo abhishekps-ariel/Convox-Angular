@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { Group, User, OnlineUser } from '../../types/chat-types';
@@ -8,7 +9,7 @@ import { Group, User, OnlineUser } from '../../types/chat-types';
 @Component({
   selector: 'app-group-info',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ImageCropperComponent],
   templateUrl: './group-info.html',
   styleUrls: ['./group-info.css']
 })
@@ -26,6 +27,11 @@ export class GroupInfo implements OnInit {
   currentGroupIcon: string | undefined;
   removingMemberId: string | null = null;
   token: string | null = null;
+  
+  // Image cropper state - EXACT React pattern
+  showCropModal = false;
+  imageChangedEvent: any = null;
+  croppedImage: string = '';
 
   constructor(
     private apiService: ApiService,
@@ -81,6 +87,9 @@ export class GroupInfo implements OnInit {
     try {
       await this.apiService.updateGroupIcon(this.token, this.group._id, newIcon);
       console.log('Group icon updated successfully');
+      // Close modal and reload to refresh for all users
+      this.close.emit();
+      window.location.reload();
     } catch (error) {
       console.error('Error updating group icon:', error);
       // Revert local state on error
@@ -141,14 +150,26 @@ export class GroupInfo implements OnInit {
   }
 
   onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.handleUpdateGroupIcon(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    // Show crop modal - EXACT React pattern
+    this.imageChangedEvent = event;
+    this.showCropModal = true;
+  }
+
+  imageCropped(event: ImageCroppedEvent): void {
+    // Use base64 for proper storage - NOT objectUrl
+    this.croppedImage = event.base64 || '';
+  }
+
+  async handleCropComplete(): Promise<void> {
+    if (this.croppedImage) {
+      await this.handleUpdateGroupIcon(this.croppedImage);
     }
+    this.handleCropCancel();
+  }
+
+  handleCropCancel(): void {
+    this.showCropModal = false;
+    this.imageChangedEvent = null;
+    this.croppedImage = '';
   }
 }

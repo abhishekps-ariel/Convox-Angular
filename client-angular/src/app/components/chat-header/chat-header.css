@@ -1,1 +1,5 @@
 /* Component styles */
+:host {
+  display: block;
+  flex-shrink: 0;
+}
