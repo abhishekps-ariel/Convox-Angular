@@ -148,10 +148,12 @@ export class SocketService {
         prev.map((msg) => msg._id === message._id ? message : msg)
       );
       
+      // Update conversation list if this is the last message (for direct messages)
       if (message.receiver && this.onMessageEditedCallback) {
         this.onMessageEditedCallback(message);
       }
       
+      // Update group list if this is the last message (for group messages)
       if (message.group && this.onGroupMessageEditedCallback) {
         this.onGroupMessageEditedCallback(message);
       }

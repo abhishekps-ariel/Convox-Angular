@@ -138,7 +138,7 @@
   <app-create-group-modal
     *ngIf="showCreateGroupModal"
     [isOpen]="showCreateGroupModal"
-    [users]="allUsers"
+    [users]="availableUsersForGroup"
     [token]="token || ''"
     (close)="onCloseCreateGroupModal()"
     (groupCreated)="onGroupCreated()"

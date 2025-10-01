@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
+import { SocketService } from '../../services/socket.service';
 import { User, OnlineUser, Conversation, Group, GroupWithUnread } from '../../types/chat-types';
 import { ConversationList } from '../conversation-list/conversation-list';
 import { GroupList } from '../group-list/group-list';
@@ -39,7 +40,8 @@ export class LeftSidebar implements OnInit, OnChanges {
 
   constructor(
     private authService: AuthService,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private socketService: SocketService
   ) {}
 
   ngOnInit(): void {
@@ -131,6 +133,11 @@ export class LeftSidebar implements OnInit, OnChanges {
     );
   }
 
+  // Filter out current user from group creation - EXACT React pattern
+  get availableUsersForGroup(): User[] {
+    return this.allUsers.filter(u => u.id !== this.user?.id);
+  }
+
   isUserOnline(userId: string): boolean {
     return this.onlineUsers.some(u => u.userId === userId);
   }
@@ -206,7 +213,7 @@ export class LeftSidebar implements OnInit, OnChanges {
     }
   }
 
-  // Update group with new message (called from socket)
+  // Update group with new message (called from socket) - EXACT React pattern
   updateGroupWithNewMessage(message: any, shouldIncrementUnread: boolean = true): void {
     const groupId = typeof message.group === 'string' ? message.group : message.group?._id;
     if (!groupId) return;
@@ -217,13 +224,54 @@ export class LeftSidebar implements OnInit, OnChanges {
       const updatedGroups = [...this.groups];
       const existingGroup = updatedGroups[existingGroupIndex];
 
-      const newUnreadCount = shouldIncrementUnread && message.sender._id !== this.user?.id
-        ? existingGroup.unreadCount + 1
-        : existingGroup.unreadCount;
+      // Check if this is the currently open group - EXACT React logic
+      const isCurrentGroupOpen = this.selectedGroup?._id === groupId;
+
+      // Handle different message update scenarios
+      let updatedLastMessage: any = message;
+      let newUnreadCount = existingGroup.unreadCount || 0;
+
+      // Check if this is a delete operation
+      const isDeleteOperation = message.deletedForSender || message.deletedForReceiver || message.deletedForEveryone;
+
+      if (isDeleteOperation) {
+        // Handle delete logic
+        if (message.deletedForEveryone) {
+          // For "delete for everyone", show the deleted message
+          updatedLastMessage = {
+            ...message,
+            deletedForSender: message.deletedForSender,
+            deletedForReceiver: message.deletedForReceiver,
+            deletedForEveryone: message.deletedForEveryone,
+            deletedAt: message.deletedAt
+          };
+        } else {
+          // For "delete for me", don't update here
+          return;
+        }
+      } else {
+        // Handle edit or new message
+        // If this is the currently open group, mark as read on server
+        if (isCurrentGroupOpen && message.sender._id !== this.user?.id) {
+          this.socketService.markGroupMessagesAsRead(groupId);
+        }
+
+        // Calculate unread count - EXACT React logic
+        if (isCurrentGroupOpen) {
+          // If viewing the group, unread count should be 0
+          newUnreadCount = 0;
+        } else if (message.sender._id === this.user?.id) {
+          // If current user sent the message, don't increment
+          newUnreadCount = existingGroup.unreadCount || 0;
+        } else {
+          // If someone else sent and we're not viewing, use shouldIncrementUnread flag
+          newUnreadCount = shouldIncrementUnread ? (existingGroup.unreadCount || 0) + 1 : (existingGroup.unreadCount || 0);
+        }
+      }
 
       updatedGroups[existingGroupIndex] = {
         ...existingGroup,
-        lastMessage: message,
+        lastMessage: updatedLastMessage,
         unreadCount: newUnreadCount,
       };
 

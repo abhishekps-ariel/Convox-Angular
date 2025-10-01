@@ -17,7 +17,8 @@
     <div class="p-6">
       <!-- Group Picture and Basic Info -->
       <div class="text-center mb-6">
-        <div class="relative inline-block group">
+        <!-- Only show group icon if user is active member - EXACT React pattern -->
+        <div *ngIf="isCurrentUserActiveMember" class="relative inline-block group">
           <img
             *ngIf="currentGroupIcon"
             [src]="currentGroupIcon"
@@ -32,7 +33,7 @@
           </div>
           
           <!-- Admin controls for group icon - only show on hover -->
-          <div *ngIf="isCurrentUserAdmin" class="absolute -bottom-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div *ngIf="isCurrentUserAdmin && isCurrentUserActiveMember" class="absolute -bottom-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <button
               (click)="fileInput.click()"
               class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors"
@@ -68,15 +69,16 @@
           {{ group.name }}
         </h3>
         
-        <p *ngIf="group.description" class="text-gray-600 mb-2 text-sm max-w-xs mx-auto">
+        <p *ngIf="group.description && isCurrentUserActiveMember" class="text-gray-600 mb-2 text-sm max-w-xs mx-auto">
           {{ group.description }}
         </p>
         
-        <p class="text-gray-500 mb-2">
+        <!-- Only show member count and creator info if active member - EXACT React pattern -->
+        <p *ngIf="isCurrentUserActiveMember" class="text-gray-500 mb-2">
           {{ group.members.length }} member{{ group.members.length !== 1 ? 's' : '' }}
         </p>
 
-        <p class="text-gray-500 text-sm">
+        <p *ngIf="isCurrentUserActiveMember" class="text-gray-500 text-sm">
           Created by {{ group.createdBy.username }}
         </p>
       </div>

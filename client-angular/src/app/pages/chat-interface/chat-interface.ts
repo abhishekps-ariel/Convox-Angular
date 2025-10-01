@@ -61,7 +61,7 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // Set up socket callbacks after view is initialized
+    // Set up socket callbacks after view is initialized - EXACT React pattern
     this.socketService.setCallbacks({
       onMessagesRead: (userId: string) => {
         if (this.leftSidebar) {
@@ -73,9 +73,85 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
           this.leftSidebar.updateConversationWithNewMessage(message, shouldIncrementUnread);
         }
       },
+      onMessageEdited: (message: any) => {
+        // Update conversation list when message is edited via socket (for direct messages)
+        if (message.receiver) {
+          const updatedConversations = this.conversations.map((conv) => {
+            if (conv.lastMessage && conv.lastMessage._id === message._id) {
+              return {
+                ...conv,
+                lastMessage: {
+                  ...conv.lastMessage,
+                  text: message.text,
+                  isEdited: message.isEdited,
+                  editedAt: message.editedAt
+                }
+              };
+            }
+            return conv;
+          });
+          this.onConversationsChange(updatedConversations);
+        }
+      },
+      onMessageDeleted: (message: any) => {
+        // Update conversation list when message is deleted via socket (for direct messages)
+        if (message.receiver) {
+          const updatedConversations = this.conversations.map((conv) => {
+            if (conv.lastMessage && conv.lastMessage._id === message._id) {
+              // If it's "delete for everyone", show the deleted message
+              if (message.deletedForEveryone) {
+                return {
+                  ...conv,
+                  lastMessage: {
+                    ...conv.lastMessage,
+                    deletedForSender: message.deletedForSender,
+                    deletedForReceiver: message.deletedForReceiver,
+                    deletedForEveryone: message.deletedForEveryone,
+                    deletedAt: message.deletedAt
+                  }
+                };
+              } else {
+                // For "delete for me", find the previous non-deleted message
+                const previousMessages = this.messages.filter(msg => {
+                  const isSameConversation = (
+                    (msg.sender._id === message.sender._id && msg.receiver && message.receiver && msg.receiver._id === message.receiver._id) ||
+                    (msg.sender._id === message.receiver?._id && msg.receiver && message.receiver && msg.receiver._id === message.sender._id)
+                  );
+                  
+                  return msg._id !== message._id && 
+                         isSameConversation &&
+                         !this.isMessageDeletedForUser(msg, this.user?.id || '');
+                });
+                
+                previousMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                const newLastMessage = previousMessages.length > 0 ? previousMessages[0] : null;
+                
+                return {
+                  ...conv,
+                  lastMessage: newLastMessage
+                };
+              }
+            }
+            return conv;
+          });
+          this.onConversationsChange(updatedConversations);
+        }
+      },
       onGroupMessageReceived: (message: any, shouldIncrementUnread?: boolean) => {
         if (this.leftSidebar && message.group) {
           this.leftSidebar.updateGroupWithNewMessage(message, shouldIncrementUnread);
+        }
+      },
+      onGroupMessageEdited: (message: any) => {
+        // Update group list when message is edited via socket (for group messages)
+        if (this.leftSidebar && message.group) {
+          this.leftSidebar.updateGroupWithNewMessage(message, false);
+        }
+      },
+      onGroupMessageDeleted: (message: any) => {
+        // Update group list when message is deleted via socket (for group messages)
+        if (this.leftSidebar && message.group && message.deletedForEveryone) {
+          this.leftSidebar.updateGroupWithNewMessage(message, false);
         }
       }
     });
@@ -214,9 +290,17 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
     this.groups = groups;
   }
 
-  onLeaveGroup(groupId: string): void {
-    // Implementation for leaving group
-    console.log('Leave group:', groupId);
+  async onLeaveGroup(groupId: string): Promise<void> {
+    if (!this.token) return;
+    
+    try {
+      await this.apiService.leaveGroup(this.token, groupId);
+      // Refresh groups list and close group chat - EXACT React pattern
+      window.location.reload();
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      alert('Failed to leave group');
+    }
   }
 
   showAddMembersModal = false;
