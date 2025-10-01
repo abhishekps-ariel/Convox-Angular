@@ -150,17 +150,33 @@ export class GroupInfo implements OnInit {
   }
 
   onFileSelected(event: Event): void {
-    // Show crop modal - EXACT React pattern
-    this.imageChangedEvent = event;
-    this.showCropModal = true;
+    console.log('Group file selected:', event);
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      console.log('Group file:', input.files[0]);
+      // Show crop modal
+      this.imageChangedEvent = event;
+      this.showCropModal = true;
+    }
   }
 
   imageCropped(event: ImageCroppedEvent): void {
-    // Use base64 for proper storage - NOT objectUrl
-    this.croppedImage = event.base64 || '';
+    console.log('Group image cropped:', event);
+    console.log('Event keys:', Object.keys(event));
+    
+    // ngx-image-cropper uses blob, convert to base64
+    if (event.blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.croppedImage = reader.result as string;
+        console.log('Group cropped image base64 length:', this.croppedImage.length);
+      };
+      reader.readAsDataURL(event.blob);
+    }
   }
 
   async handleCropComplete(): Promise<void> {
+    console.log('Group crop complete, croppedImage:', this.croppedImage?.substring(0, 50));
     if (this.croppedImage) {
       await this.handleUpdateGroupIcon(this.croppedImage);
     }

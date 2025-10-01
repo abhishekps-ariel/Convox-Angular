@@ -85,17 +85,33 @@ export class CreateGroupModal {
   }
 
   onFileSelected(event: Event): void {
-    // Show crop modal - EXACT React pattern
-    this.imageChangedEvent = event;
-    this.showCropModal = true;
+    console.log('Create group file selected:', event);
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      console.log('Create group file:', input.files[0]);
+      // Show crop modal
+      this.imageChangedEvent = event;
+      this.showCropModal = true;
+    }
   }
 
   imageCropped(event: ImageCroppedEvent): void {
-    // Use base64 for proper storage - NOT objectUrl
-    this.croppedImage = event.base64 || '';
+    console.log('Create group image cropped:', event);
+    console.log('Event keys:', Object.keys(event));
+    
+    // ngx-image-cropper uses blob, convert to base64
+    if (event.blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.croppedImage = reader.result as string;
+        console.log('Create group cropped image base64 length:', this.croppedImage.length);
+      };
+      reader.readAsDataURL(event.blob);
+    }
   }
 
   handleCropComplete(): void {
+    console.log('Create group crop complete, croppedImage:', this.croppedImage?.substring(0, 50));
     if (this.croppedImage) {
       this.groupIcon = this.croppedImage;
     }

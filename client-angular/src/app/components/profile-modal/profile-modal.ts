@@ -47,17 +47,33 @@ export class ProfileModal implements OnInit {
   }
 
   onFileSelected(event: Event): void {
-    // Show crop modal - EXACT React pattern
-    this.imageChangedEvent = event;
-    this.showCropModal = true;
+    console.log('File selected:', event);
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      console.log('File:', input.files[0]);
+      // Show crop modal
+      this.imageChangedEvent = event;
+      this.showCropModal = true;
+    }
   }
 
   imageCropped(event: ImageCroppedEvent): void {
-    // Use base64 for proper storage
-    this.croppedImage = event.base64 || '';
+    console.log('Image cropped:', event);
+    console.log('Event keys:', Object.keys(event));
+    
+    // ngx-image-cropper uses blob, convert to base64
+    if (event.blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.croppedImage = reader.result as string;
+        console.log('Cropped image base64 length:', this.croppedImage.length);
+      };
+      reader.readAsDataURL(event.blob);
+    }
   }
 
   handleCropComplete(): void {
+    console.log('Crop complete, croppedImage:', this.croppedImage?.substring(0, 50));
     if (this.croppedImage) {
       this.profilePicture = this.croppedImage;
       this.previewUrl = this.croppedImage;

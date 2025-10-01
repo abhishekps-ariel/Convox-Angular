@@ -56,11 +56,12 @@ export class MessageArea implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Scroll to bottom when opening chat or when forceScrollToBottom is true
+    // Instant scroll to bottom when opening chat - no animation
     if (changes['messages'] && this.messages.length > 0 && this.forceScrollToBottom) {
-      setTimeout(() => {
+      // Use requestAnimationFrame for immediate scroll after render
+      requestAnimationFrame(() => {
         this.scrollToBottom();
-      }, 50);
+      });
     }
   }
 
@@ -68,6 +69,7 @@ export class MessageArea implements OnChanges {
     try {
       const hostElement = this.elementRef.nativeElement as HTMLElement;
       if (hostElement) {
+        // Instant scroll - no smooth behavior
         hostElement.scrollTop = hostElement.scrollHeight;
       }
     } catch (err) {
