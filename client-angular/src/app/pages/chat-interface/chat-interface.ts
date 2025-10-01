@@ -255,12 +255,18 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
       const fetchedMessages = await this.apiService.fetchMessages(this.token, this.selectedUser.id);
       this.messages = fetchedMessages;
       
-      // Mark messages as read via socket - EXACT React pattern
+      // Mark messages as read via socket
             (this.socketService as any).socket?.emit("markMessagesAsRead", { 
               senderId: this.selectedUser.id 
             });
+      
+      // Scroll after messages are loaded
+      setTimeout(() => {
+        this.forceScrollToBottom = false;
+      }, 300);
     } catch (error) {
       console.error('Error loading messages:', error);
+      this.forceScrollToBottom = false;
     }
   }
 
@@ -296,10 +302,8 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
     }
     
     // Force scroll to bottom when opening conversation
-    this.forceScrollToBottom = true;
-    setTimeout(() => {
-      this.forceScrollToBottom = false;
-    }, 200);
+      this.forceScrollToBottom = true;
+    // Reset happens in loadMessages after messages are loaded
   }
 
   onGroupSelect(group: Group): void {
@@ -325,9 +329,7 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
     
     // Force scroll to bottom when opening group
     this.forceScrollToBottom = true;
-    setTimeout(() => {
-      this.forceScrollToBottom = false;
-    }, 200);
+    // Reset happens in loadGroupMessages after messages are loaded
   }
 
   async loadGroupMessages(): Promise<void> {
@@ -340,8 +342,14 @@ export class ChatInterface implements OnInit, OnDestroy, AfterViewInit {
       // Join group chat and mark as read
       this.socketService.joinGroupChat(this.selectedGroup._id);
       this.socketService.markGroupMessagesAsRead(this.selectedGroup._id);
+      
+      // Scroll after messages are loaded
+      setTimeout(() => {
+        this.forceScrollToBottom = false;
+      }, 300);
     } catch (error) {
       console.error('Error loading group messages:', error);
+      this.forceScrollToBottom = false;
     }
   }
 

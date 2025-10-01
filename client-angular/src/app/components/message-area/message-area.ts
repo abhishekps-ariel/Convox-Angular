@@ -56,11 +56,11 @@ export class MessageArea implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Basic scroll - only when opening a conversation
-    if (changes['forceScrollToBottom'] && this.forceScrollToBottom) {
+    // Scroll to bottom when opening chat or when forceScrollToBottom is true
+    if (changes['messages'] && this.messages.length > 0 && this.forceScrollToBottom) {
       setTimeout(() => {
         this.scrollToBottom();
-      }, 100);
+      }, 50);
     }
   }
 
